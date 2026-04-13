@@ -39,6 +39,12 @@ function makeFetch(dataset: Person[] = people) {
 			}
 		}
 
+		// Global search — case-insensitive substring across name and age
+		if (params.search) {
+			const q = params.search.toLowerCase();
+			data = data.filter((r) => r.name.toLowerCase().includes(q) || String(r.age).includes(q));
+		}
+
 		// Sorting
 		if (params.sortBy) {
 			const { id, direction } = params.sortBy;
@@ -622,5 +628,98 @@ describe('race conditions', () => {
 		await new Promise((r) => setTimeout(r, 50)); // small settle window
 
 		expect(table.rows[0]?.data.name).toBe('Fast');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+describe('search', () => {
+	it('setSearch sets searchQuery and resets pageIndex to 0', async () => {
+		const table = makeTable();
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		table.pageIndex = 1;
+		table.setSearch('alice');
+
+		expect(table.searchQuery).toBe('alice');
+		expect(table.pageIndex).toBe(0);
+	});
+
+	it('setSearch triggers a fetch with the search param included', async () => {
+		const fetch = makeFetch();
+		const table = makeTable(fetch);
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		fetch.mockClear();
+		table.setSearch('Alice');
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		expect(fetch).toHaveBeenCalledTimes(1);
+		const params: ServerTableParams = fetch.mock.calls[0][0];
+		expect(params.search).toBe('Alice');
+	});
+
+	it('updates rows based on search results from the server', async () => {
+		const table = makeTable();
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		table.setSearch('alice');
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		expect(table.rows.length).toBe(1);
+		expect(table.rows[0].data.name).toBe('Alice');
+		expect(table.rowCount).toBe(1);
+	});
+
+	it('sends search: undefined when searchQuery is empty', async () => {
+		const fetch = makeFetch();
+		const table = makeTable(fetch);
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		// First set a non-empty search so the state actually changes when we clear it
+		table.setSearch('alice');
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		// Now clear the search — this should trigger a fetch without a search param
+		fetch.mockClear();
+		table.setSearch('');
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		expect(fetch).toHaveBeenCalledTimes(1);
+		const params: ServerTableParams = fetch.mock.calls[0][0];
+		expect(params.search).toBeUndefined();
+	});
+
+	it('clearFilters also clears searchQuery and triggers a full-data fetch', async () => {
+		const fetch = makeFetch();
+		const table = makeTable(fetch);
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		table.setSearch('alice');
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		expect(table.rowCount).toBe(1);
+
+		fetch.mockClear();
+		table.clearFilters();
+		flushSync();
+		await vi.waitFor(() => expect(table.loading).toBe(false));
+
+		expect(table.searchQuery).toBe('');
+		expect(table.rowCount).toBe(5);
+		const params: ServerTableParams = fetch.mock.calls[0][0];
+		expect(params.search).toBeUndefined();
 	});
 });

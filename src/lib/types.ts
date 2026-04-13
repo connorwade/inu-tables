@@ -83,6 +83,37 @@ export type FilterFn = (cellValue: unknown, filterValue: unknown) => boolean;
 export type SortFn<TRow> = (a: TRow, b: TRow) => number;
 
 /**
+ * A function that decides whether a row matches the current global search query
+ * for a specific column.
+ *
+ * When provided on a column definition, it overrides the default search
+ * behaviour (which checks the column's `displayValue` for a case-insensitive
+ * substring match).
+ *
+ * Return `true` to include the row, `false` to exclude it.
+ *
+ * @param value        - The raw value returned by the column's accessor for this row.
+ * @param displayValue - The formatted display string (from `cell`, or `String(value)`).
+ * @param row          - The full row data object.
+ * @param query        - The current trimmed search query string (as typed by the user).
+ *
+ * @typeParam TRow - The shape of each row's data object.
+ *
+ * @example
+ * ```ts
+ * // Only match rows where the full name starts with the query
+ * const searchFn: SearchFn<Person> = (_, display, _row, query) =>
+ *   display.toLowerCase().startsWith(query.toLowerCase())
+ * ```
+ */
+export type SearchFn<TRow> = (
+	value: unknown,
+	displayValue: string,
+	row: TRow,
+	query: string
+) => boolean;
+
+/**
  * Shared column options common to both column definition variants.
  *
  * @typeParam TRow - The shape of each row's data object.
@@ -141,6 +172,33 @@ interface ColumnDefBase<TRow> {
 	 * ```
 	 */
 	cell?: (value: unknown, row: TRow) => string;
+
+	/**
+	 * Whether this column participates in global search.
+	 *
+	 * When `false`, the column is excluded from `TableState.searchQuery` matching.
+	 * @default true
+	 */
+	searchable?: boolean;
+
+	/**
+	 * Custom search function for this column.
+	 *
+	 * When provided, overrides the default search behaviour (case-insensitive
+	 * substring match against `displayValue`). Receives the raw accessor value,
+	 * the formatted display string, the full row data, and the current query.
+	 *
+	 * @see {@link SearchFn}
+	 *
+	 * @example
+	 * ```ts
+	 * // Only match rows where the display value starts with the query
+	 * { accessorKey: 'name', header: 'Name',
+	 *   searchFn: (_, display, _row, query) =>
+	 *     display.toLowerCase().startsWith(query.toLowerCase()) }
+	 * ```
+	 */
+	searchFn?: SearchFn<TRow>;
 }
 
 /**

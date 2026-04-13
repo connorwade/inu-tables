@@ -640,3 +640,176 @@ describe('displayValue', () => {
 		expect(cells[0].displayValue).toBe('');
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+describe('search', () => {
+	it('returns all rows when searchQuery is empty', () => {
+		const table = makeTable();
+		expect(table.filteredRows.length).toBe(5);
+	});
+
+	it('matches against the raw accessor value when no cellFn is present', () => {
+		const table = makeTable();
+		table.searchQuery = 'ali';
+		expect(table.filteredRows.length).toBe(1);
+		expect(table.filteredRows[0].data.name).toBe('Alice');
+	});
+
+	it('matches against displayValue when cellFn is present', () => {
+		const table = new TableState<Person>({
+			data: people,
+			columns: [
+				{
+					accessorKey: 'age',
+					header: 'Age',
+					// cellFn formats as "30 yrs" etc.
+					cell: (v) => `${v} yrs`
+				}
+			]
+		});
+		table.searchQuery = '25 yrs';
+		expect(table.filteredRows.length).toBe(1);
+		expect(table.filteredRows[0].data.age).toBe(25);
+	});
+
+	it('prefers displayValue over raw accessor when cellFn is present', () => {
+		// Raw value is 25, cellFn emits "twenty-five" — only searching "twenty" should match
+		const table = new TableState<Person>({
+			data: people,
+			columns: [
+				{
+					accessorKey: 'age',
+					header: 'Age',
+					cell: (v) => (v === 25 ? 'twenty-five' : String(v))
+				}
+			]
+		});
+		// "25" does NOT appear in the displayValue for Bob (it's "twenty-five")
+		table.searchQuery = '25';
+		expect(table.filteredRows.length).toBe(0);
+
+		// "twenty" DOES appear in the displayValue
+		table.searchQuery = 'twenty';
+		expect(table.filteredRows.length).toBe(1);
+		expect(table.filteredRows[0].data.age).toBe(25);
+	});
+
+	it('is case-insensitive by default', () => {
+		const table = makeTable();
+		table.searchQuery = 'ALICE';
+		expect(table.filteredRows.length).toBe(1);
+		expect(table.filteredRows[0].data.name).toBe('Alice');
+	});
+
+	it('matches across multiple columns — any match passes the row', () => {
+		const table = makeTable();
+		// "30" matches age column for Alice; no name column contains "30"
+		table.searchQuery = '30';
+		expect(table.filteredRows.some((r) => r.data.name === 'Alice')).toBe(true);
+	});
+
+	it('excludes columns with searchable: false', () => {
+		const table = new TableState<Person>({
+			data: people,
+			columns: [
+				{ accessorKey: 'name', header: 'Name', searchable: false },
+				{ accessorKey: 'age', header: 'Age' }
+			]
+		});
+		// "Alice" only appears in name column, which is not searchable
+		table.searchQuery = 'Alice';
+		expect(table.filteredRows.length).toBe(0);
+	});
+
+	it('uses a custom searchFn when provided', () => {
+		const table = new TableState<Person>({
+			data: people,
+			columns: [
+				{
+					accessorKey: 'name',
+					header: 'Name',
+					// Only match rows where the name starts with the query
+					searchFn: (_, display, _row, query) =>
+						display.toLowerCase().startsWith(query.toLowerCase())
+				}
+			]
+		});
+		// "al" starts Alice's name; "lic" does not start it
+		table.searchQuery = 'al';
+		expect(table.filteredRows.length).toBe(1);
+		expect(table.filteredRows[0].data.name).toBe('Alice');
+
+		table.searchQuery = 'lic';
+		expect(table.filteredRows.length).toBe(0);
+	});
+
+	it('passes raw value, displayValue, row data, and query to searchFn', () => {
+		const calls: { value: unknown; display: string; row: Person; query: string }[] = [];
+		const table = new TableState<Person>({
+			data: [people[0]], // just Alice
+			columns: [
+				{
+					accessorKey: 'age',
+					header: 'Age',
+					cell: (v) => `${v} yrs`,
+					searchFn: (value, display, row, query) => {
+						calls.push({ value, display, row: row as Person, query });
+						return true;
+					}
+				}
+			]
+		});
+		table.searchQuery = 'test';
+		// Trigger derived access
+		table.filteredRows;
+		expect(calls.length).toBeGreaterThan(0);
+		expect(calls[0].value).toBe(30);
+		expect(calls[0].display).toBe('30 yrs');
+		expect(calls[0].row.name).toBe('Alice');
+		expect(calls[0].query).toBe('test');
+	});
+
+	it('ANDs with active column filters — both must pass', () => {
+		// Use a two-column table (no Date) so String(value) for age is just a number string,
+		// avoiding accidental search matches through Date.toString() day/month names.
+		const table = new TableState<Person>({
+			data: people,
+			columns: [
+				{ accessorKey: 'name', header: 'Name', filterable: true },
+				{ accessorKey: 'age', header: 'Age', filterable: true, filterType: 'number' }
+			]
+		});
+		// Filter: age >= 28 → Alice(30), Carol(35), Dave(28) pass
+		// Search 'e' → Alice("Alice" has 'e'), Dave("Dave" has 'e') pass; Carol("Carol"/"35") — no 'e'
+		table.columns[1].filterValue = { min: 28 };
+		table.searchQuery = 'e';
+		const names = table.filteredRows.map((r) => r.data.name).sort();
+		expect(names).toEqual(['Alice', 'Dave']);
+	});
+
+	it('clearFilters also clears searchQuery', () => {
+		const table = makeTable();
+		table.searchQuery = 'alice';
+		table.columns[0].filterValue = 'x';
+		table.clearFilters();
+		expect(table.searchQuery).toBe('');
+		expect(table.filteredRows.length).toBe(5);
+	});
+
+	it('resets to full row count when searchQuery is cleared', () => {
+		const table = makeTable();
+		table.searchQuery = 'Alice';
+		expect(table.filteredRows.length).toBe(1);
+		table.searchQuery = '';
+		expect(table.filteredRows.length).toBe(5);
+	});
+
+	it('trims whitespace before matching', () => {
+		const table = makeTable();
+		table.searchQuery = '  alice  ';
+		expect(table.filteredRows.length).toBe(1);
+	});
+});

@@ -57,8 +57,9 @@
 	});
 
 	$effect(() => {
-		// Reset to first page whenever any filter changes
+		// Reset to first page whenever any filter or search changes
 		for (const col of tableState.columns) col.filterValue;
+		tableState.searchQuery;
 		tableState.setPage(0);
 	});
 
@@ -75,7 +76,9 @@
 		return 'bg-green-100 text-green-800';
 	}
 
-	const anyFiltered = $derived(tableState.columns.some((c) => c.isFiltered));
+	const anyFiltered = $derived(
+		tableState.columns.some((c) => c.isFiltered) || tableState.searchQuery.trim() !== ''
+	);
 </script>
 
 <div class="max-w-full p-6">
@@ -107,10 +110,25 @@
 				onclick={() => tableState.clearFilters()}
 				class="cursor-pointer rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200"
 			>
-				Clear filters
+				Clear filters & search
 			</button>
 		</div>
 	{/if}
+
+	<!-- Search -->
+	<div class="mb-3 flex items-center gap-2">
+		<input
+			type="search"
+			placeholder="Search all columns…"
+			bind:value={tableState.searchQuery}
+			class="w-full max-w-xs rounded border border-gray-200 bg-white px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-400 focus:outline-none"
+		/>
+		{#if tableState.searchQuery}
+			<span class="text-sm text-gray-500">
+				{tableState.filteredRows.length} result{tableState.filteredRows.length === 1 ? '' : 's'}
+			</span>
+		{/if}
+	</div>
 
 	<!-- Table -->
 	<div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">

@@ -97,6 +97,25 @@ export class TableState<TRow> {
 	sortBy = $state<{ column: ColumnState<TRow>; direction: SortDirection } | null>(null);
 
 	// -------------------------------------------------------------------------
+	// Search state
+	// -------------------------------------------------------------------------
+
+	/**
+	 * The current global search query string.
+	 *
+	 * When non-empty (after trimming), a row must have at least one searchable
+	 * column whose value matches the query before it appears in `filteredRows`.
+	 * The default match is a case-insensitive substring check against
+	 * `displayValue`; individual columns can override this with `searchFn`.
+	 *
+	 * Setting to `''` clears the search. Also cleared by {@link clearFilters}.
+	 *
+	 * To reset pagination when the query changes, add a `$effect` in your
+	 * component that reads `searchQuery` and calls `setPage(0)`.
+	 */
+	searchQuery = $state('');
+
+	// -------------------------------------------------------------------------
 	// Pagination state
 	// -------------------------------------------------------------------------
 
@@ -124,18 +143,48 @@ export class TableState<TRow> {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Rows that pass every active column filter, in data order.
+	 * Rows that pass every active column filter and the global search query,
+	 * in data order.
 	 *
-	 * Recomputes whenever any column's `filterValue` changes.
-	 * When no column has an active filter this returns the full `rows` array
-	 * without allocating a new array.
+	 * Recomputes whenever any column's `filterValue` or `searchQuery` changes.
+	 * When no column has an active filter and `searchQuery` is empty, this
+	 * returns the full `rows` array without allocating a new array.
+	 *
+	 * **Search value priority per column:**
+	 * 1. `column.searchFn` — custom override (receives raw value, displayValue, row, query)
+	 * 2. `displayValue` (`cellFn` result) — when a cell formatter is defined
+	 * 3. Raw accessor value via `String(value ?? '')` — fallback
 	 */
 	filteredRows = $derived.by(() => {
 		const active = this.columns.filter((c) => c.isFiltered);
-		if (active.length === 0) return this.rows;
-		return this.rows.filter((row) =>
-			active.every((col) => col.filterFn(col.accessor(row.data), col.filterValue))
-		);
+		const rawQuery = this.searchQuery.trim();
+		const searchCols = rawQuery ? this.columns.filter((c) => c.searchable) : [];
+
+		if (active.length === 0 && searchCols.length === 0) return this.rows;
+
+		const lowerQuery = rawQuery.toLowerCase();
+
+		return this.rows.filter((row) => {
+			// Every active column filter must pass
+			if (active.length > 0) {
+				const passesFilters = active.every((col) =>
+					col.filterFn(col.accessor(row.data), col.filterValue)
+				);
+				if (!passesFilters) return false;
+			}
+
+			// At least one searchable column must match the query
+			if (searchCols.length > 0) {
+				return searchCols.some((col) => {
+					const raw = col.accessor(row.data);
+					const display = col.cellFn ? col.cellFn(raw, row.data) : String(raw ?? '');
+					if (col.searchFn) return col.searchFn(raw, display, row.data, rawQuery);
+					return display.toLowerCase().includes(lowerQuery);
+				});
+			}
+
+			return true;
+		});
 	});
 
 	/**
@@ -309,7 +358,8 @@ export class TableState<TRow> {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Clears the filter value on every column and resets the page to 0.
+	 * Clears the filter value on every column, clears `searchQuery`, and resets
+	 * the page to 0.
 	 *
 	 * For individual column filters, set `column.filterValue` directly —
 	 * it is a plain `$state` property and can be used with `bind:value`:
@@ -318,12 +368,13 @@ export class TableState<TRow> {
 	 * <input type="text" bind:value={col.filterValue} />
 	 * ```
 	 *
-	 * To reset pagination when a filter changes, add a `$effect` in your
-	 * component:
+	 * To reset pagination when a filter or search changes, add a `$effect` in
+	 * your component:
 	 *
 	 * ```svelte
 	 * $effect(() => {
 	 *   table.columns.forEach(c => c.filterValue);
+	 *   table.searchQuery;
 	 *   table.setPage(0);
 	 * });
 	 * ```
@@ -332,6 +383,7 @@ export class TableState<TRow> {
 		for (const col of this.columns) {
 			col.filterValue = undefined;
 		}
+		this.searchQuery = '';
 		this.pageIndex = 0;
 	}
 

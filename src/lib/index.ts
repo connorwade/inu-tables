@@ -14,6 +14,7 @@ export type {
 	FilterType,
 	FilterFn,
 	SortFn,
+	SearchFn,
 	NumberRange,
 	DateRange,
 	ColumnDef,

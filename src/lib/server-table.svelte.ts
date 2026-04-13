@@ -110,6 +110,21 @@ export class ServerTableState<TRow> {
 	rowCount = $state(0);
 
 	// -------------------------------------------------------------------------
+	// Search state
+	// -------------------------------------------------------------------------
+
+	/**
+	 * The current global search query string.
+	 *
+	 * Changing this value triggers a new server fetch with `search` included
+	 * in `ServerTableParams`. Prefer {@link setSearch} over setting this
+	 * directly so that `pageIndex` is reset automatically.
+	 *
+	 * Also cleared by {@link clearFilters}.
+	 */
+	searchQuery = $state('');
+
+	// -------------------------------------------------------------------------
 	// Async state
 	// -------------------------------------------------------------------------
 
@@ -203,7 +218,8 @@ export class ServerTableState<TRow> {
 					: null,
 				filters: Object.fromEntries(
 					this.columns.filter((c) => c.isFiltered).map((c) => [c.id, c.filterValue] as const)
-				)
+				),
+				search: this.searchQuery.trim() || undefined
 			};
 
 			this.#load(params);
@@ -307,12 +323,27 @@ export class ServerTableState<TRow> {
 	}
 
 	/**
-	 * Clears the filter value on every column and resets `pageIndex` to `0`.
+	 * Sets the global search query and resets `pageIndex` to `0`.
+	 *
+	 * Prefer this over setting `searchQuery` directly so that the page resets
+	 * automatically on every new search.
+	 *
+	 * @param query - The new search query. Pass `''` to clear.
+	 */
+	setSearch(query: string): void {
+		this.searchQuery = query;
+		this.pageIndex = 0;
+	}
+
+	/**
+	 * Clears the filter value on every column, clears `searchQuery`, and resets
+	 * `pageIndex` to `0`.
 	 */
 	clearFilters(): void {
 		for (const col of this.columns) {
 			col.filterValue = undefined;
 		}
+		this.searchQuery = '';
 		this.pageIndex = 0;
 	}
 

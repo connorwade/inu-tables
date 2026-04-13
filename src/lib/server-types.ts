@@ -32,6 +32,16 @@ export interface ServerTableParams {
 	 * - date columns send a {@link DateRange} object (`{ min?, max? }`)
 	 */
 	filters: Record<string, string | NumberRange | DateRange | undefined>;
+
+	/**
+	 * The current global search query string, or `undefined` when the search
+	 * box is empty.
+	 *
+	 * The server is responsible for matching against whichever fields it
+	 * considers "searchable". Typically a case-insensitive substring match
+	 * across all text fields.
+	 */
+	search?: string;
 }
 
 /**

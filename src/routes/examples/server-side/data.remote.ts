@@ -35,7 +35,8 @@ const paramsSchema = z.object({
 				})
 			])
 			.optional()
-	)
+	),
+	search: z.string().optional()
 });
 
 // ---------------------------------------------------------------------------
@@ -88,6 +89,20 @@ export const getPersons = query(
 				data = data.filter((r) => r.progress >= range.min!);
 			if (range.max !== undefined && !isNaN(range.max))
 				data = data.filter((r) => r.progress <= range.max!);
+		}
+
+		// --- Global search -------------------------------------------------------
+		if (params.search) {
+			const q = params.search.toLowerCase();
+			data = data.filter(
+				(r) =>
+					r.firstName.toLowerCase().includes(q) ||
+					r.lastName.toLowerCase().includes(q) ||
+					r.status.toLowerCase().includes(q) ||
+					String(r.age).includes(q) ||
+					String(r.visits).includes(q) ||
+					String(r.progress).includes(q)
+			);
 		}
 
 		// --- Sorting -------------------------------------------------------------

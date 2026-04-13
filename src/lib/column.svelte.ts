@@ -6,6 +6,7 @@ import type {
 	FilterFn,
 	FilterType,
 	NumberRange,
+	SearchFn,
 	SortFn
 } from './types.js';
 
@@ -117,6 +118,25 @@ export class ColumnState<TRow> {
 	 */
 	readonly cellFn: ((value: unknown, row: TRow) => string) | undefined;
 
+	/**
+	 * Whether this column participates in global search.
+	 *
+	 * When `false`, the column is excluded when `TableState.searchQuery` is
+	 * evaluated. Defaults to `true`.
+	 */
+	readonly searchable: boolean;
+
+	/**
+	 * Custom search function for this column.
+	 *
+	 * When present, overrides the default case-insensitive substring match
+	 * against `displayValue`. Receives the raw value, the formatted display
+	 * string, the full row data, and the current trimmed query string.
+	 *
+	 * Set via the `searchFn` property on the column definition.
+	 */
+	readonly searchFn: SearchFn<TRow> | undefined;
+
 	// -------------------------------------------------------------------------
 	// Reactive state
 	// -------------------------------------------------------------------------
@@ -186,5 +206,7 @@ export class ColumnState<TRow> {
 		this.filterType = def.filterType ?? 'text';
 		this.filterFn = resolveFilterFn(def);
 		this.cellFn = def.cell;
+		this.searchable = def.searchable ?? true;
+		this.searchFn = def.searchFn;
 	}
 }
