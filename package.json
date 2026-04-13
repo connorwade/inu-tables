@@ -68,5 +68,8 @@
 	"dependencies": {
 		"@faker-js/faker": "^10.4.0",
 		"zod": "^4.3.6"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }
