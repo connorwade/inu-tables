@@ -1,5 +1,6 @@
 // Entity state classes
 export { TableState } from './table.svelte.js';
+export { ServerTableState } from './server-table.svelte.js';
 export { ColumnState } from './column.svelte.js';
 export { RowState } from './row.svelte.js';
 export { CellState } from './cell.svelte.js';
@@ -14,5 +15,9 @@ export type {
 	FilterFn,
 	SortFn,
 	ColumnDef,
+	ColumnDefWithKey,
+	ColumnDefWithFn,
 	TableOptions
 } from './types.js';
+
+export type { ServerTableParams, ServerTableResult, ServerTableOptions } from './server-types.js';
