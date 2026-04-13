@@ -6,46 +6,40 @@
 		data: makeData(1000),
 		columns: [
 			{
-				id: 'firstName',
+				accessorKey: 'firstName',
 				header: 'First Name',
-				accessor: (r) => r.firstName,
 				sortable: true,
 				filterable: true
 			},
 			{
-				id: 'lastName',
+				accessorKey: 'lastName',
 				header: 'Last Name',
-				accessor: (r) => r.lastName,
 				sortable: true,
 				filterable: true
 			},
 			{
-				id: 'age',
+				accessorKey: 'age',
 				header: 'Age',
-				accessor: (r) => r.age,
 				sortable: true,
 				filterable: true,
 				filterType: 'number'
 			},
 			{
-				id: 'visits',
+				accessorKey: 'visits',
 				header: 'Visits',
-				accessor: (r) => r.visits,
 				sortable: true,
 				filterable: true,
 				filterType: 'number'
 			},
 			{
-				id: 'status',
+				accessorKey: 'status',
 				header: 'Status',
-				accessor: (r) => r.status,
 				sortable: true,
 				filterable: true
 			},
 			{
-				id: 'progress',
+				accessorKey: 'progress',
 				header: 'Progress',
-				accessor: (r) => r.progress,
 				sortable: true,
 				filterable: true,
 				filterType: 'number'

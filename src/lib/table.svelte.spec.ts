@@ -17,19 +17,17 @@ const people: Person[] = [
 ];
 
 const columns: ColumnDef<Person>[] = [
-	{ id: 'name', header: 'Name', accessor: (r) => r.name, sortable: true, filterable: true },
+	{ accessorKey: 'name', header: 'Name', sortable: true, filterable: true },
 	{
-		id: 'age',
+		accessorKey: 'age',
 		header: 'Age',
-		accessor: (r) => r.age,
 		sortable: true,
 		filterable: true,
 		filterType: 'number'
 	},
 	{
-		id: 'joined',
+		accessorKey: 'joined',
 		header: 'Joined',
-		accessor: (r) => r.joined,
 		sortable: true,
 		filterable: true,
 		filterType: 'date'
@@ -210,7 +208,7 @@ describe('filtering', () => {
 	it('column.isFiltered is false for non-filterable columns', () => {
 		const nonFilterable = new TableState({
 			data: people,
-			columns: [{ id: 'name', header: 'Name', accessor: (r) => r.name }]
+			columns: [{ accessorKey: 'name', header: 'Name' }]
 		});
 		nonFilterable.columns[0].filterValue = 'Alice';
 		expect(nonFilterable.columns[0].isFiltered).toBe(false);
@@ -286,7 +284,7 @@ describe('sorting', () => {
 	it('toggleSort is a no-op for non-sortable columns', () => {
 		const nonSortable = new TableState({
 			data: people,
-			columns: [{ id: 'name', header: 'Name', accessor: (r) => r.name }]
+			columns: [{ accessorKey: 'name', header: 'Name' }]
 		});
 		nonSortable.toggleSort(nonSortable.columns[0]);
 		expect(nonSortable.sortBy).toBeNull();
@@ -500,9 +498,8 @@ describe('custom sortFn', () => {
 			data: people,
 			columns: [
 				{
-					id: 'name',
+					accessorKey: 'name',
 					header: 'Name',
-					accessor: (r) => r.name,
 					sortable: true,
 					sortFn: (a, b) => a.name.length - b.name.length
 				}
@@ -528,7 +525,7 @@ describe('custom filterFn', () => {
 				{
 					id: 'age',
 					header: 'Age',
-					accessor: (r) => r.age,
+					accessorFn: (r) => r.age,
 					filterable: true,
 					filterFn: (cellValue) => Number(cellValue) % 2 === 0
 				}

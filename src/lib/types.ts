@@ -39,20 +39,14 @@ export type FilterFn = (cellValue: unknown, filterValue: unknown) => boolean;
 export type SortFn<TRow> = (a: TRow, b: TRow) => number;
 
 /**
- * Definition for a single table column.
- * Pass an array of these to the `TableState` constructor.
+ * Shared column options common to both column definition variants.
  *
  * @typeParam TRow - The shape of each row's data object.
+ * @internal
  */
-export interface ColumnDef<TRow> {
-	/** Unique identifier for this column. Used as a stable key. */
-	id: string;
-
+interface ColumnDefBase<TRow> {
 	/** Display label shown in the column header. */
 	header: string;
-
-	/** Extracts the cell value from a row data object. */
-	accessor: (row: TRow) => unknown;
 
 	/**
 	 * Whether this column supports sorting.
@@ -85,6 +79,79 @@ export interface ColumnDef<TRow> {
 	 */
 	filterFn?: FilterFn;
 }
+
+/**
+ * Column definition using a row key as the accessor.
+ *
+ * The column `id` defaults to `accessorKey` when not explicitly provided.
+ *
+ * @typeParam TRow - The shape of each row's data object.
+ *
+ * @example
+ * ```ts
+ * { accessorKey: 'name', header: 'Name', sortable: true }
+ * // id is automatically 'name'
+ *
+ * { accessorKey: 'name', id: 'playerName', header: 'Player' }
+ * // explicit id override
+ * ```
+ */
+export interface ColumnDefWithKey<TRow> extends ColumnDefBase<TRow> {
+	/**
+	 * A key of the row object used to extract the cell value.
+	 * Also serves as the column `id` unless `id` is explicitly provided.
+	 */
+	accessorKey: keyof TRow & string;
+
+	/**
+	 * Optional override for the column id.
+	 * When omitted, `accessorKey` is used as the id.
+	 */
+	id?: string;
+
+	accessorFn?: never;
+}
+
+/**
+ * Column definition using a function as the accessor.
+ *
+ * Use this variant when the cell value cannot be expressed as a single key
+ * (e.g. computed or combined fields). An explicit `id` is required.
+ *
+ * @typeParam TRow - The shape of each row's data object.
+ *
+ * @example
+ * ```ts
+ * {
+ *   id: 'fullName',
+ *   header: 'Full Name',
+ *   accessorFn: (r) => `${r.firstName} ${r.lastName}`
+ * }
+ * ```
+ */
+export interface ColumnDefWithFn<TRow> extends ColumnDefBase<TRow> {
+	/** Extracts the cell value from a row data object. */
+	accessorFn: (row: TRow) => unknown;
+
+	/** Unique identifier for this column. Required when using `accessorFn`. */
+	id: string;
+
+	accessorKey?: never;
+}
+
+/**
+ * Definition for a single table column.
+ * Pass an array of these to the `TableState` constructor.
+ *
+ * Two variants are supported:
+ * - **Key variant** (`accessorKey`): provide a key of the row type; the id
+ *   defaults to that key and the accessor is `row[accessorKey]`.
+ * - **Function variant** (`accessorFn` + `id`): provide an explicit id and
+ *   a function that extracts the cell value from a row.
+ *
+ * @typeParam TRow - The shape of each row's data object.
+ */
+export type ColumnDef<TRow> = ColumnDefWithKey<TRow> | ColumnDefWithFn<TRow>;
 
 /**
  * Options accepted by the `TableState` constructor.

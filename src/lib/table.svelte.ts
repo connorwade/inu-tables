@@ -39,9 +39,9 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
  *     { name: 'Bob',   age: 25, joined: new Date('2023-06-01') }
  *   ],
  *   columns: [
- *     { id: 'name',   header: 'Name',   accessor: r => r.name,   sortable: true, filterable: true },
- *     { id: 'age',    header: 'Age',    accessor: r => r.age,    sortable: true, filterable: true, filterType: 'number' },
- *     { id: 'joined', header: 'Joined', accessor: r => r.joined, sortable: true, filterable: true, filterType: 'date' }
+ *     { accessorKey: 'name',   header: 'Name',   sortable: true, filterable: true },
+ *     { accessorKey: 'age',    header: 'Age',    sortable: true, filterable: true, filterType: 'number' },
+ *     { accessorKey: 'joined', header: 'Joined', sortable: true, filterable: true, filterType: 'date' }
  *   ],
  *   pageSize: 20
  * })

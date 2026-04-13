@@ -1,5 +1,5 @@
 import { resolveFilterFn } from './filters.js';
-import type { ColumnDef, FilterFn, FilterType, SortFn } from './types.js';
+import type { ColumnDef, ColumnDefWithFn, FilterFn, FilterType, SortFn } from './types.js';
 
 /**
  * Represents a single table column.
@@ -23,14 +23,10 @@ import type { ColumnDef, FilterFn, FilterType, SortFn } from './types.js';
  * const table = new TableState({
  *   data,
  *   columns: [
- *     {
- *       id: 'name',
- *       header: 'Name',
- *       accessor: r => r.name,
- *       sortable: true,
- *       filterable: true,
- *       filterType: 'text'
- *     }
+ *     // Key variant — id defaults to 'name'
+ *     { accessorKey: 'name', header: 'Name', sortable: true, filterable: true },
+ *     // Function variant — explicit id required
+ *     { id: 'full', header: 'Full Name', accessorFn: (r) => `${r.first} ${r.last}` }
  *   ]
  * })
  *
@@ -137,9 +133,16 @@ export class ColumnState<TRow> {
 	// -------------------------------------------------------------------------
 
 	constructor(def: ColumnDef<TRow>) {
-		this.id = def.id;
+		if (def.accessorKey !== undefined) {
+			const key = def.accessorKey;
+			this.id = def.id ?? key;
+			this.accessor = (row) => row[key as keyof TRow];
+		} else {
+			const fnDef = def as ColumnDefWithFn<TRow>;
+			this.id = fnDef.id;
+			this.accessor = fnDef.accessorFn;
+		}
 		this.header = def.header;
-		this.accessor = def.accessor;
 		this.sortable = def.sortable ?? false;
 		this.sortFn = def.sortFn;
 		this.filterable = def.filterable ?? false;
