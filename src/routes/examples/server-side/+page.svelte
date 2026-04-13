@@ -199,16 +199,32 @@
 							<td class="border-b border-gray-200 px-4 py-1">
 								{#if col.filterable}
 									{#if col.filterType === 'number'}
-										<input
-											type="number"
-											placeholder="min…"
-											value={col.filterValue ?? ''}
-											oninput={(e) => {
-												const v = (e.target as HTMLInputElement).valueAsNumber;
-												tableState.setFilter(col, isNaN(v) ? undefined : v);
-											}}
-											class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
-										/>
+										<div class="flex gap-1">
+											<input
+												type="number"
+												placeholder="min"
+												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												value={(col.filterValue as import('$lib/index.js').NumberRange)?.min ?? ''}
+												oninput={(e) => {
+													const v = (e.target as HTMLInputElement).valueAsNumber;
+													const cur =
+														(col.filterValue as import('$lib/index.js').NumberRange) ?? {};
+													tableState.setFilter(col, { ...cur, min: isNaN(v) ? undefined : v });
+												}}
+											/>
+											<input
+												type="number"
+												placeholder="max"
+												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												value={(col.filterValue as import('$lib/index.js').NumberRange)?.max ?? ''}
+												oninput={(e) => {
+													const v = (e.target as HTMLInputElement).valueAsNumber;
+													const cur =
+														(col.filterValue as import('$lib/index.js').NumberRange) ?? {};
+													tableState.setFilter(col, { ...cur, max: isNaN(v) ? undefined : v });
+												}}
+											/>
+										</div>
 									{:else}
 										<input
 											type="text"
@@ -274,7 +290,7 @@
 											{String(cell.value)}
 										</span>
 									{:else}
-										{String(cell.value)}
+										{cell.displayValue}
 									{/if}
 								</td>
 							{/each}

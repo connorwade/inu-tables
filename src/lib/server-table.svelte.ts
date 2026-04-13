@@ -2,7 +2,7 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { ColumnState } from './column.svelte.js';
 import { RowState } from './row.svelte.js';
 import { CellState } from './cell.svelte.js';
-import type { SortDirection } from './types.js';
+import type { DateRange, NumberRange, SortDirection } from './types.js';
 import type { ServerTableOptions, ServerTableParams, ServerTableResult } from './server-types.js';
 
 /**
@@ -301,7 +301,7 @@ export class ServerTableState<TRow> {
 	 * @param column - The column to filter.
 	 * @param value  - The new filter value. Pass `undefined` to clear.
 	 */
-	setFilter(column: ColumnState<TRow>, value: string | number | undefined): void {
+	setFilter(column: ColumnState<TRow>, value: string | NumberRange | DateRange | undefined): void {
 		column.filterValue = value;
 		this.pageIndex = 0;
 	}

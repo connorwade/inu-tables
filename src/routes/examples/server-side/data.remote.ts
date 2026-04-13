@@ -23,7 +23,19 @@ const paramsSchema = z.object({
 			direction: z.enum(['ascending', 'descending'])
 		})
 		.nullable(),
-	filters: z.record(z.string(), z.union([z.string(), z.number()]).optional())
+	filters: z.record(
+		z.string(),
+		z
+			.union([
+				z.string(),
+				z.object({ min: z.number().optional(), max: z.number().optional() }),
+				z.object({
+					min: z.union([z.string(), z.instanceof(Date)]).optional(),
+					max: z.union([z.string(), z.instanceof(Date)]).optional()
+				})
+			])
+			.optional()
+	)
 });
 
 // ---------------------------------------------------------------------------
@@ -56,17 +68,26 @@ export const getPersons = query(
 			const q = String(filters['status']).toLowerCase();
 			data = data.filter((r) => r.status.toLowerCase().includes(q));
 		}
-		if (filters['age'] !== undefined && filters['age'] !== '') {
-			const min = Number(filters['age']);
-			if (!isNaN(min)) data = data.filter((r) => r.age >= min);
+		if (filters['age']) {
+			const range = filters['age'] as { min?: number; max?: number };
+			if (range.min !== undefined && !isNaN(range.min))
+				data = data.filter((r) => r.age >= range.min!);
+			if (range.max !== undefined && !isNaN(range.max))
+				data = data.filter((r) => r.age <= range.max!);
 		}
-		if (filters['visits'] !== undefined && filters['visits'] !== '') {
-			const min = Number(filters['visits']);
-			if (!isNaN(min)) data = data.filter((r) => r.visits >= min);
+		if (filters['visits']) {
+			const range = filters['visits'] as { min?: number; max?: number };
+			if (range.min !== undefined && !isNaN(range.min))
+				data = data.filter((r) => r.visits >= range.min!);
+			if (range.max !== undefined && !isNaN(range.max))
+				data = data.filter((r) => r.visits <= range.max!);
 		}
-		if (filters['progress'] !== undefined && filters['progress'] !== '') {
-			const min = Number(filters['progress']);
-			if (!isNaN(min)) data = data.filter((r) => r.progress >= min);
+		if (filters['progress']) {
+			const range = filters['progress'] as { min?: number; max?: number };
+			if (range.min !== undefined && !isNaN(range.min))
+				data = data.filter((r) => r.progress >= range.min!);
+			if (range.max !== undefined && !isNaN(range.max))
+				data = data.filter((r) => r.progress <= range.max!);
 		}
 
 		// --- Sorting -------------------------------------------------------------

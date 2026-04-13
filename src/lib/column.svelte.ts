@@ -1,5 +1,32 @@
 import { resolveFilterFn } from './filters.js';
-import type { ColumnDef, ColumnDefWithFn, FilterFn, FilterType, SortFn } from './types.js';
+import type {
+	ColumnDef,
+	ColumnDefWithFn,
+	DateRange,
+	FilterFn,
+	FilterType,
+	NumberRange,
+	SortFn
+} from './types.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns `true` when a range filter object has at least one active bound.
+ * An empty object or an object with all-undefined bounds counts as "no filter".
+ *
+ * @internal
+ */
+function hasActiveRangeValue(v: NumberRange | DateRange): boolean {
+	const min = (v as { min?: unknown }).min;
+	const max = (v as { max?: unknown }).max;
+	return (
+		(min !== undefined && min !== null && min !== '') ||
+		(max !== undefined && max !== null && max !== '')
+	);
+}
 
 /**
  * Represents a single table column.
@@ -79,6 +106,17 @@ export class ColumnState<TRow> {
 	 */
 	readonly filterFn: FilterFn;
 
+	/**
+	 * Optional display formatter for this column's cells.
+	 *
+	 * When present, `CellState.displayValue` calls this function instead of
+	 * falling back to `String(value)`. Receives the raw accessor value and
+	 * the full row data object.
+	 *
+	 * Set via the `cell` property on the column definition.
+	 */
+	readonly cellFn: ((value: unknown, row: TRow) => string) | undefined;
+
 	// -------------------------------------------------------------------------
 	// Reactive state
 	// -------------------------------------------------------------------------
@@ -97,18 +135,15 @@ export class ColumnState<TRow> {
 	/**
 	 * The current filter value for this column.
 	 *
-	 * Typed as `string | number | undefined` so it can be used directly with
-	 * `bind:value` on a Svelte input:
+	 * The type depends on the column's `filterType`:
+	 * - `'text'`   — use a `string`
+	 * - `'number'` — use a {@link NumberRange} object (`{ min?, max? }`)
+	 * - `'date'`   — use a {@link DateRange} object (`{ min?, max? }`)
 	 *
-	 * ```svelte
-	 * <input type="text"   bind:value={col.filterValue} />
-	 * <input type="number" bind:value={col.filterValue} />
-	 * <input type="date"   bind:value={col.filterValue} />
-	 * ```
-	 *
-	 * Setting to `undefined` or `''` clears the filter.
+	 * For custom `filterFn` columns, any value accepted by your function works.
+	 * Setting to `undefined` clears the filter.
 	 */
-	filterValue = $state<string | number | undefined>(undefined);
+	filterValue = $state<string | NumberRange | DateRange | undefined>(undefined);
 
 	// -------------------------------------------------------------------------
 	// Derived state
@@ -118,15 +153,17 @@ export class ColumnState<TRow> {
 	 * `true` when the column has an active filter that `TableState` should apply.
 	 *
 	 * Derived from `filterable` and the current `filterValue`.
-	 * A value of `''`, `null`, or `undefined` is treated as "no filter".
+	 * A `string` value of `''`, `null`, or `undefined` is treated as "no filter".
+	 * A `NumberRange` or `DateRange` object is inactive when both bounds are
+	 * `undefined` (i.e. `{}`).
 	 */
-	isFiltered = $derived.by(
-		() =>
-			this.filterable &&
-			this.filterValue !== undefined &&
-			this.filterValue !== null &&
-			this.filterValue !== ''
-	);
+	isFiltered = $derived.by(() => {
+		if (!this.filterable) return false;
+		const v = this.filterValue;
+		if (v === undefined || v === null || v === '') return false;
+		if (typeof v === 'object') return hasActiveRangeValue(v);
+		return true;
+	});
 
 	// -------------------------------------------------------------------------
 	// Constructor
@@ -148,5 +185,6 @@ export class ColumnState<TRow> {
 		this.filterable = def.filterable ?? false;
 		this.filterType = def.filterType ?? 'text';
 		this.filterFn = resolveFilterFn(def);
+		this.cellFn = def.cell;
 	}
 }

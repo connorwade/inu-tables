@@ -6,15 +6,59 @@
 export type SortDirection = 'ascending' | 'descending';
 
 /**
+ * A min/max range used as the filter value for `'number'` columns.
+ *
+ * Either bound is optional — supply only `min`, only `max`, or both.
+ * An object where both bounds are `undefined` is treated as "no filter".
+ *
+ * Used directly with the built-in {@link numberFilter}.
+ *
+ * @example
+ * ```ts
+ * col.filterValue = { min: 18, max: 65 }  // rows where 18 ≤ value ≤ 65
+ * col.filterValue = { min: 18 }            // rows where value ≥ 18
+ * col.filterValue = { max: 65 }            // rows where value ≤ 65
+ * ```
+ */
+export interface NumberRange {
+	/** Inclusive lower bound. Rows below this value are excluded. */
+	min?: number;
+	/** Inclusive upper bound. Rows above this value are excluded. */
+	max?: number;
+}
+
+/**
+ * A min/max range used as the filter value for `'date'` columns.
+ *
+ * Either bound is optional — supply only `min`, only `max`, or both.
+ * An object where both bounds are `undefined` is treated as "no filter".
+ *
+ * Each bound can be a `Date` object or an ISO date string (e.g. `"2024-01-15"`
+ * from `<input type="date">`). Comparison is done at day granularity (UTC).
+ *
+ * Used directly with the built-in {@link dateFilter}.
+ *
+ * @example
+ * ```ts
+ * col.filterValue = { min: '2024-01-01', max: '2024-12-31' }  // within 2024
+ * col.filterValue = { min: new Date('2024-06-01') }            // on or after June 2024
+ * ```
+ */
+export interface DateRange {
+	/** Inclusive start date. Rows before this date are excluded. */
+	min?: Date | string;
+	/** Inclusive end date. Rows after this date are excluded. */
+	max?: Date | string;
+}
+
+/**
  * Built-in filter strategies with pre-built filter functions.
  *
- * - `'text'`   — case-insensitive string containment
- * - `'number'` — numeric `>=` comparison (show rows ≥ the filter value)
- * - `'date'`   — date "on or after" comparison (show rows on or after the filter date)
+ * - `'text'`   — case-insensitive string containment; `filterValue` is `string`
+ * - `'number'` — inclusive min/max range; `filterValue` is {@link NumberRange}
+ * - `'date'`   — inclusive date range at day granularity; `filterValue` is {@link DateRange}
  *
- * All three accept a plain `string | number | undefined` filter value and
- * can be used directly with `bind:value` on a Svelte input element.
- * For range filtering or custom logic, supply a `filterFn` instead.
+ * For fully custom logic, supply a `filterFn` instead.
  */
 export type FilterType = 'text' | 'number' | 'date';
 
@@ -78,6 +122,25 @@ interface ColumnDefBase<TRow> {
 	 * Receives the cell value (accessor result) and the current `filterValue`.
 	 */
 	filterFn?: FilterFn;
+
+	/**
+	 * Formats the cell value for display.
+	 *
+	 * When provided, `CellState.displayValue` uses this function instead of
+	 * `String(value)`. Receives the raw accessor value and the full row data.
+	 * Must return a plain string.
+	 *
+	 * @example
+	 * ```ts
+	 * // Format a numeric age field
+	 * { accessorKey: 'age', header: 'Age', cell: (value) => `${value} yrs` }
+	 *
+	 * // Combine two fields
+	 * { id: 'name', header: 'Name', accessorFn: (r) => r,
+	 *   cell: (_, row) => `${row.firstName} ${row.lastName}` }
+	 * ```
+	 */
+	cell?: (value: unknown, row: TRow) => string;
 }
 
 /**

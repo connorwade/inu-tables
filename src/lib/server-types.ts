@@ -1,4 +1,4 @@
-import type { ColumnDef, SortDirection } from './types.js';
+import type { ColumnDef, DateRange, NumberRange, SortDirection } from './types.js';
 
 /**
  * The parameters sent to the server on every table state change.
@@ -26,9 +26,12 @@ export interface ServerTableParams {
 	 * Active filter values keyed by column `id`.
 	 *
 	 * Only columns with a non-empty `filterValue` are included. The server is
-	 * responsible for interpreting each value according to the column's type.
+	 * responsible for interpreting each value according to the column's type:
+	 * - text columns send a plain `string`
+	 * - number columns send a {@link NumberRange} object (`{ min?, max? }`)
+	 * - date columns send a {@link DateRange} object (`{ min?, max? }`)
 	 */
-	filters: Record<string, string | number | undefined>;
+	filters: Record<string, string | NumberRange | DateRange | undefined>;
 }
 
 /**

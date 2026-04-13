@@ -1,4 +1,16 @@
-import type { FilterFn, FilterType, ColumnDef } from './types.js';
+import type { FilterFn, FilterType, ColumnDef, NumberRange, DateRange } from './types.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Converts a `Date | string | undefined` to a UTC day timestamp, or `NaN`. */
+function toUTCDay(v: Date | string | undefined | null): number {
+	if (v === undefined || v === null || v === '') return NaN;
+	const d = v instanceof Date ? v : new Date(String(v));
+	if (isNaN(d.getTime())) return NaN;
+	return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
 
 // ---------------------------------------------------------------------------
 // Built-in filter functions
@@ -24,81 +36,84 @@ export const textFilter: FilterFn = (cellValue, filterValue): boolean => {
 };
 
 /**
- * Numeric greater-than-or-equal filter.
+ * Inclusive min/max range filter for numeric columns.
  *
- * Shows rows where the cell value is **greater than or equal to** the filter
- * value — the natural behaviour for a "minimum" number input.
+ * Accepts a {@link NumberRange} object with optional `min` and `max` bounds.
+ * A row passes when its cell value falls within `[min, max]` (both inclusive).
+ * Omitting a bound leaves that side open-ended.
  *
- * Both the cell value and the filter value are coerced with `Number()` before
- * comparison. A `NaN` result on either side passes the row (no filter applied).
- * `null`, `undefined`, or `''` filter values also pass all rows.
- *
- * Works directly with `bind:value` on `<input type="number">`:
- * ```svelte
- * <input type="number" bind:value={col.filterValue} />
- * ```
+ * Both the cell value and each bound are coerced with `Number()` before
+ * comparison. A `NaN` result on the cell side excludes the row; a `NaN`
+ * bound is ignored (treated as not set). A `null`, `undefined`, or empty
+ * range object passes all rows.
  *
  * @example
  * ```ts
- * numberFilter(25, 20)  // true  (25 >= 20)
- * numberFilter(25, 25)  // true  (25 >= 25)
- * numberFilter(25, 30)  // false (25 < 30)
- * numberFilter(25, '')  // true  (no filter)
+ * numberFilter(25, { min: 20, max: 30 })  // true  (20 ≤ 25 ≤ 30)
+ * numberFilter(25, { min: 20 })            // true  (25 ≥ 20)
+ * numberFilter(25, { max: 20 })            // false (25 > 20)
+ * numberFilter(25, {})                     // true  (no bounds set)
+ * numberFilter(25, undefined)              // true  (no filter)
  * ```
  */
 export const numberFilter: FilterFn = (cellValue, filterValue): boolean => {
-	if (filterValue === undefined || filterValue === null || filterValue === '') return true;
-	const threshold = Number(filterValue);
-	if (isNaN(threshold)) return true;
+	if (filterValue === undefined || filterValue === null) return true;
+
+	const range = filterValue as NumberRange;
+	const hasMin = range.min !== undefined && range.min !== null && !isNaN(Number(range.min));
+	const hasMax = range.max !== undefined && range.max !== null && !isNaN(Number(range.max));
+
+	if (!hasMin && !hasMax) return true;
+
 	const num = Number(cellValue);
 	if (isNaN(num)) return false;
-	return num >= threshold;
+
+	if (hasMin && num < Number(range.min)) return false;
+	if (hasMax && num > Number(range.max)) return false;
+	return true;
 };
 
 /**
- * Date "on or after" filter.
+ * Inclusive date range filter for date columns.
  *
- * Shows rows where the cell date is **on or after** the filter date —
- * the natural behaviour for a "from" date input.
+ * Accepts a {@link DateRange} object with optional `min` and `max` bounds.
+ * A row passes when its cell date falls within `[min, max]` (both inclusive,
+ * compared at day granularity in UTC). Omitting a bound leaves that side
+ * open-ended.
  *
- * The filter value can be a `Date` object or an ISO date string (e.g.
- * `"2024-01-15"` from `<input type="date">`). The cell value can be a
- * `Date` or a value coercible to `Date` via `new Date(String(cellValue))`.
+ * Each bound can be a `Date` object or an ISO date string (e.g. `"2024-01-15"`
+ * from `<input type="date">`). The cell value can be a `Date` or a value
+ * coercible to `Date`.
  *
- * Comparison is done at day granularity (midnight UTC of the filter date
- * vs midnight UTC of the cell date).
- *
- * Works directly with `bind:value` on `<input type="date">`:
- * ```svelte
- * <input type="date" bind:value={col.filterValue} />
- * ```
+ * An invalid or missing bound is ignored. A `null`, `undefined`, or empty
+ * range object passes all rows.
  *
  * @example
  * ```ts
- * dateFilter(new Date('2024-03-10'), '2024-01-01')  // true  (on or after)
- * dateFilter(new Date('2024-03-10'), '2024-03-10')  // true  (same day)
- * dateFilter(new Date('2024-03-10'), '2024-06-01')  // false (before)
- * dateFilter(new Date('2024-03-10'), '')             // true  (no filter)
+ * dateFilter(new Date('2024-03-10'), { min: '2024-01-01', max: '2024-12-31' })  // true
+ * dateFilter(new Date('2024-03-10'), { min: '2024-06-01' })                     // false (before min)
+ * dateFilter(new Date('2024-03-10'), { max: '2024-06-01' })                     // true  (before max)
+ * dateFilter(new Date('2024-03-10'), {})                                        // true  (no bounds)
+ * dateFilter(new Date('2024-03-10'), undefined)                                 // true  (no filter)
  * ```
  */
 export const dateFilter: FilterFn = (cellValue, filterValue): boolean => {
-	if (filterValue === undefined || filterValue === null || filterValue === '') return true;
-	const filterDate = filterValue instanceof Date ? filterValue : new Date(String(filterValue));
-	if (isNaN(filterDate.getTime())) return true;
-	const cellDate = cellValue instanceof Date ? cellValue : new Date(String(cellValue));
-	if (isNaN(cellDate.getTime())) return false;
-	// Compare at day granularity (strip time component)
-	const filterDay = Date.UTC(
-		filterDate.getUTCFullYear(),
-		filterDate.getUTCMonth(),
-		filterDate.getUTCDate()
-	);
-	const cellDay = Date.UTC(
-		cellDate.getUTCFullYear(),
-		cellDate.getUTCMonth(),
-		cellDate.getUTCDate()
-	);
-	return cellDay >= filterDay;
+	if (filterValue === undefined || filterValue === null) return true;
+
+	const range = filterValue as DateRange;
+	const minDay = toUTCDay(range.min);
+	const maxDay = toUTCDay(range.max);
+	const hasMin = !isNaN(minDay);
+	const hasMax = !isNaN(maxDay);
+
+	if (!hasMin && !hasMax) return true;
+
+	const cellDay = toUTCDay(cellValue instanceof Date ? cellValue : new Date(String(cellValue)));
+	if (isNaN(cellDay)) return false;
+
+	if (hasMin && cellDay < minDay) return false;
+	if (hasMax && cellDay > maxDay) return false;
+	return true;
 };
 
 // ---------------------------------------------------------------------------

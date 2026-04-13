@@ -13,8 +13,6 @@ A headless, reactive table state library for Svelte 5. Inu Tables manages sortin
 
 ## Installation
 
-** Coming soon **
-
 ```bash
 npm install inu-tables
 # or

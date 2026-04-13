@@ -38,29 +38,54 @@ describe('textFilter', () => {
 });
 
 // ---------------------------------------------------------------------------
-// numberFilter
+// numberFilter — range API
 // ---------------------------------------------------------------------------
 
 describe('numberFilter', () => {
-	it('returns true when cell value equals the threshold', () => {
-		expect(numberFilter(25, 25)).toBe(true);
+	// --- both bounds ---
+	it('passes when value is within min and max (inclusive)', () => {
+		expect(numberFilter(25, { min: 20, max: 30 })).toBe(true);
 	});
 
-	it('returns true when cell value is above the threshold', () => {
-		expect(numberFilter(30, 25)).toBe(true);
+	it('passes when value equals min', () => {
+		expect(numberFilter(20, { min: 20, max: 30 })).toBe(true);
 	});
 
-	it('returns false when cell value is below the threshold', () => {
-		expect(numberFilter(20, 25)).toBe(false);
+	it('passes when value equals max', () => {
+		expect(numberFilter(30, { min: 20, max: 30 })).toBe(true);
 	});
 
-	it('accepts a string filter value and parses it as a number', () => {
-		expect(numberFilter(30, '25')).toBe(true);
-		expect(numberFilter(20, '25')).toBe(false);
+	it('fails when value is below min', () => {
+		expect(numberFilter(10, { min: 20, max: 30 })).toBe(false);
 	});
 
-	it('passes all rows when filter value is an empty string', () => {
-		expect(numberFilter(25, '')).toBe(true);
+	it('fails when value is above max', () => {
+		expect(numberFilter(40, { min: 20, max: 30 })).toBe(false);
+	});
+
+	// --- min only ---
+	it('passes when value is at or above min (no max)', () => {
+		expect(numberFilter(25, { min: 20 })).toBe(true);
+		expect(numberFilter(20, { min: 20 })).toBe(true);
+	});
+
+	it('fails when value is below min (no max)', () => {
+		expect(numberFilter(10, { min: 20 })).toBe(false);
+	});
+
+	// --- max only ---
+	it('passes when value is at or below max (no min)', () => {
+		expect(numberFilter(15, { max: 20 })).toBe(true);
+		expect(numberFilter(20, { max: 20 })).toBe(true);
+	});
+
+	it('fails when value is above max (no min)', () => {
+		expect(numberFilter(25, { max: 20 })).toBe(false);
+	});
+
+	// --- empty / no-op ---
+	it('passes all rows when range object is empty ({})', () => {
+		expect(numberFilter(25, {})).toBe(true);
 	});
 
 	it('passes all rows when filter value is null', () => {
@@ -71,44 +96,89 @@ describe('numberFilter', () => {
 		expect(numberFilter(25, undefined)).toBe(true);
 	});
 
-	it('passes all rows when filter value is not a valid number', () => {
-		expect(numberFilter(25, 'abc')).toBe(true);
+	// --- NaN / invalid ---
+	it('excludes row when cell value is not a number', () => {
+		expect(numberFilter('abc', { min: 10 })).toBe(false);
 	});
 
+	it('ignores a bound that is NaN', () => {
+		expect(numberFilter(25, { min: NaN, max: 30 })).toBe(true);
+		expect(numberFilter(25, { min: 20, max: NaN })).toBe(true);
+	});
+
+	// --- string cell coercion ---
 	it('coerces string cell values to numbers', () => {
-		expect(numberFilter('30', 25)).toBe(true);
-		expect(numberFilter('20', 25)).toBe(false);
+		expect(numberFilter('30', { min: 25 })).toBe(true);
+		expect(numberFilter('20', { min: 25 })).toBe(false);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// dateFilter
+// dateFilter — range API
 // ---------------------------------------------------------------------------
 
 describe('dateFilter', () => {
 	const jan15 = new Date('2024-01-15');
 	const mar10 = new Date('2024-03-10');
+	const jun01 = new Date('2024-06-01');
 	const dec31 = new Date('2023-12-31');
 
-	it('returns true when cell date is on the same day as the filter date', () => {
-		expect(dateFilter(new Date('2024-01-15'), jan15)).toBe(true);
+	// --- both bounds ---
+	it('passes when cell date is within the range (inclusive)', () => {
+		expect(dateFilter(mar10, { min: jan15, max: jun01 })).toBe(true);
 	});
 
-	it('returns true when cell date is after the filter date', () => {
-		expect(dateFilter(mar10, jan15)).toBe(true);
+	it('passes when cell date equals the min bound', () => {
+		expect(dateFilter(jan15, { min: jan15, max: jun01 })).toBe(true);
 	});
 
-	it('returns false when cell date is before the filter date', () => {
-		expect(dateFilter(dec31, jan15)).toBe(false);
+	it('passes when cell date equals the max bound', () => {
+		expect(dateFilter(jun01, { min: jan15, max: jun01 })).toBe(true);
 	});
 
-	it('accepts an ISO date string as the filter value', () => {
-		expect(dateFilter(mar10, '2024-01-01')).toBe(true);
-		expect(dateFilter(dec31, '2024-01-01')).toBe(false);
+	it('fails when cell date is before min', () => {
+		expect(dateFilter(dec31, { min: jan15, max: jun01 })).toBe(false);
 	});
 
-	it('passes all rows when filter value is an empty string', () => {
-		expect(dateFilter(jan15, '')).toBe(true);
+	it('fails when cell date is after max', () => {
+		expect(dateFilter(new Date('2025-01-01'), { min: jan15, max: jun01 })).toBe(false);
+	});
+
+	// --- min only ---
+	it('passes when cell date is on or after min (no max)', () => {
+		expect(dateFilter(mar10, { min: jan15 })).toBe(true);
+		expect(dateFilter(jan15, { min: jan15 })).toBe(true);
+	});
+
+	it('fails when cell date is before min (no max)', () => {
+		expect(dateFilter(dec31, { min: jan15 })).toBe(false);
+	});
+
+	// --- max only ---
+	it('passes when cell date is on or before max (no min)', () => {
+		expect(dateFilter(jan15, { max: jun01 })).toBe(true);
+		expect(dateFilter(jun01, { max: jun01 })).toBe(true);
+	});
+
+	it('fails when cell date is after max (no min)', () => {
+		expect(dateFilter(new Date('2025-01-01'), { max: jun01 })).toBe(false);
+	});
+
+	// --- ISO string bounds ---
+	it('accepts ISO date strings as bounds', () => {
+		expect(dateFilter(mar10, { min: '2024-01-01', max: '2024-12-31' })).toBe(true);
+		expect(dateFilter(dec31, { min: '2024-01-01', max: '2024-12-31' })).toBe(false);
+	});
+
+	// --- ISO string cell value ---
+	it('coerces ISO string cell values to Date', () => {
+		expect(dateFilter('2024-03-10', { min: jan15 })).toBe(true);
+		expect(dateFilter('2023-12-31', { min: jan15 })).toBe(false);
+	});
+
+	// --- empty / no-op ---
+	it('passes all rows when range object is empty ({})', () => {
+		expect(dateFilter(jan15, {})).toBe(true);
 	});
 
 	it('passes all rows when filter value is null', () => {
@@ -119,13 +189,20 @@ describe('dateFilter', () => {
 		expect(dateFilter(jan15, undefined)).toBe(true);
 	});
 
-	it('passes all rows when filter value is an invalid date string', () => {
-		expect(dateFilter(jan15, 'not-a-date')).toBe(true);
+	// --- invalid ---
+	it('ignores a bound that is an invalid date string', () => {
+		expect(dateFilter(mar10, { min: 'not-a-date', max: jun01 })).toBe(true);
 	});
 
-	it('coerces ISO string cell values to Date', () => {
-		expect(dateFilter('2024-03-10', jan15)).toBe(true);
-		expect(dateFilter('2023-12-31', jan15)).toBe(false);
+	it('excludes row when cell value is an invalid date', () => {
+		expect(dateFilter('not-a-date', { min: jan15 })).toBe(false);
+	});
+
+	// --- day granularity ---
+	it('treats dates with different times on the same day as equal (UTC day)', () => {
+		const noon = new Date('2024-01-15T12:00:00Z');
+		const evening = new Date('2024-01-15T23:59:59Z');
+		expect(dateFilter(noon, { min: evening })).toBe(true);
 	});
 });
 

@@ -214,7 +214,54 @@ describe('filtering', () => {
 		expect(nonFilterable.columns[0].isFiltered).toBe(false);
 	});
 
-	it('clearFilters restores all rows', () => {
+	it('column.isFiltered is false when filterValue is an empty range object', () => {
+		const table = makeTable();
+		table.columns[1].filterValue = {};
+		expect(table.columns[1].isFiltered).toBe(false);
+	});
+
+	it('column.isFiltered is true when a range object has at least one bound set', () => {
+		const table = makeTable();
+		table.columns[1].filterValue = { min: 25 };
+		expect(table.columns[1].isFiltered).toBe(true);
+	});
+
+	it('number range filter — min only keeps rows at or above min', () => {
+		const table = makeTable();
+		table.columns[1].filterValue = { min: 30 };
+		const ages = table.filteredRows.map((r) => r.data.age);
+		expect(ages.every((a) => a >= 30)).toBe(true);
+	});
+
+	it('number range filter — max only keeps rows at or below max', () => {
+		const table = makeTable();
+		table.columns[1].filterValue = { max: 28 };
+		const ages = table.filteredRows.map((r) => r.data.age);
+		expect(ages.every((a) => a <= 28)).toBe(true);
+	});
+
+	it('number range filter — both bounds keeps rows within the range', () => {
+		const table = makeTable();
+		table.columns[1].filterValue = { min: 25, max: 30 };
+		const ages = table.filteredRows.map((r) => r.data.age);
+		expect(ages.every((a) => a >= 25 && a <= 30)).toBe(true);
+	});
+
+	it('date range filter — min only keeps rows on or after the start date', () => {
+		const table = makeTable();
+		table.columns[2].filterValue = { min: new Date('2023-01-01') };
+		const joined = table.filteredRows.map((r) => r.data.joined.getTime());
+		expect(joined.every((t) => t >= new Date('2023-01-01').getTime())).toBe(true);
+	});
+
+	it('date range filter — both bounds keeps rows within the date range', () => {
+		const table = makeTable();
+		table.columns[2].filterValue = { min: '2022-01-01', max: '2023-06-30' };
+		// Alice: 2022-01-15, Bob: 2023-06-01 → 2 rows
+		expect(table.filteredRows.length).toBe(2);
+	});
+
+	it('clearFilters resets all column filterValues', () => {
 		const table = makeTable();
 		table.columns[0].filterValue = 'alice';
 		table.clearFilters();
@@ -232,9 +279,9 @@ describe('filtering', () => {
 		const table = makeTable();
 		// name contains 'a' (case-insensitive): Alice, Carol, Dave (3)
 		table.columns[0].filterValue = 'a';
-		// age >= 30: Alice (30), Carol (35) (2)
+		// age >= 30: Alice (30), Carol (35)
 		// intersect: Alice, Carol (2)
-		table.columns[1].filterValue = 30;
+		table.columns[1].filterValue = { min: 30 };
 		expect(table.filteredRows.length).toBe(2);
 	});
 });
@@ -532,8 +579,64 @@ describe('custom filterFn', () => {
 			]
 		});
 		// Any truthy filterValue activates the filter; the custom fn ignores it
-		table.columns[0].filterValue = 1;
+		table.columns[0].filterValue = { min: 1 };
 		const ages = table.filteredRows.map((r) => r.data.age);
 		expect(ages.every((a) => a % 2 === 0)).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// displayValue — cell formatter
+// ---------------------------------------------------------------------------
+
+describe('displayValue', () => {
+	it('falls back to String(value) when no cell formatter is provided', () => {
+		const table = makeTable();
+		const cells = table.getCellsForRow(table.rows[0]);
+		expect(cells[0].displayValue).toBe('Alice');
+		expect(cells[1].displayValue).toBe('30');
+	});
+
+	it('uses the cell formatter when provided', () => {
+		const table = new TableState<Person>({
+			data: people,
+			columns: [
+				{
+					accessorKey: 'age',
+					header: 'Age',
+					cell: (value) => `${value} yrs`
+				}
+			]
+		});
+		const cells = table.getCellsForRow(table.rows[0]);
+		expect(cells[0].displayValue).toBe('30 yrs');
+	});
+
+	it('passes both the raw value and the row data to the formatter', () => {
+		const table = new TableState<Person>({
+			data: people,
+			columns: [
+				{
+					id: 'fullName',
+					header: 'Full Name',
+					accessorFn: (r) => r,
+					cell: (_, row) => {
+						const p = row as Person;
+						return `${p.name} (${p.age})`;
+					}
+				}
+			]
+		});
+		const cells = table.getCellsForRow(table.rows[0]);
+		expect(cells[0].displayValue).toBe('Alice (30)');
+	});
+
+	it('falls back to empty string when value is null/undefined', () => {
+		const table = new TableState<{ x: null }>({
+			data: [{ x: null }],
+			columns: [{ accessorKey: 'x', header: 'X' }]
+		});
+		const cells = table.getCellsForRow(table.rows[0]);
+		expect(cells[0].displayValue).toBe('');
 	});
 });
