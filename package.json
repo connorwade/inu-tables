@@ -1,6 +1,6 @@
 {
 	"name": "inu-tables",
-	"version": "0.0.1-alpha.0",
+	"version": "0.0.1-alpha.1",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",
@@ -35,6 +35,8 @@
 		"svelte": "^5.0.0"
 	},
 	"devDependencies": {
+		"@faker-js/faker": "^10.4.0",
+		"zod": "^4.3.6",
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-auto": "^7.0.1",
@@ -65,10 +67,6 @@
 	"keywords": [
 		"svelte"
 	],
-	"dependencies": {
-		"@faker-js/faker": "^10.4.0",
-		"zod": "^4.3.6"
-	},
 	"publishConfig": {
 		"access": "public"
 	}

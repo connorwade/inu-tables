@@ -7,13 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@faker-js/faker':
-        specifier: ^10.4.0
-        version: 10.4.0
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.4
@@ -21,6 +14,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.2.0(jiti@2.6.1))
+      '@faker-js/faker':
+        specifier: ^10.4.0
+        version: 10.4.0
       '@sveltejs/adapter-auto':
         specifier: ^7.0.1
         version: 7.0.1(@sveltejs/kit@2.57.1(@sveltejs/vite-plugin-svelte@7.0.0(svelte@5.55.3(@typescript-eslint/types@8.58.1))(vite@8.0.8(@types/node@22.19.17)(jiti@2.6.1)))(svelte@5.55.3(@typescript-eslint/types@8.58.1))(typescript@6.0.2)(vite@8.0.8(@types/node@22.19.17)(jiti@2.6.1)))
@@ -93,6 +89,9 @@ importers:
       vitest-browser-svelte:
         specifier: ^2.1.0
         version: 2.1.0(svelte@5.55.3(@typescript-eslint/types@8.58.1))(vitest@4.1.4)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
 
 packages:
 
