@@ -5,13 +5,17 @@ export { ColumnState } from './column.svelte.js';
 export { RowState } from './row.svelte.js';
 export { CellState } from './cell.svelte.js';
 
-// Built-in filters and resolution helper
-export { textFilter, numberFilter, dateFilter, resolveFilterFn } from './filters.js';
+// Filter classes
+export {
+	ColumnFilter,
+	TextColumnFilter,
+	NumberColumnFilter,
+	DateColumnFilter
+} from './column-filters.svelte.js';
 
 // Types
 export type {
 	SortDirection,
-	FilterType,
 	FilterFn,
 	SortFn,
 	SearchFn,

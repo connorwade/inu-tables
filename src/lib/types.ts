@@ -54,11 +54,14 @@ export interface DateRange {
 /**
  * Built-in filter strategies with pre-built filter functions.
  *
- * - `'text'`   — case-insensitive string containment; `filterValue` is `string`
- * - `'number'` — inclusive min/max range; `filterValue` is {@link NumberRange}
- * - `'date'`   — inclusive date range at day granularity; `filterValue` is {@link DateRange}
+ * - `'text'`   — case-insensitive string containment; use {@link TextColumnFilter}
+ * - `'number'` — inclusive min/max range; use {@link NumberColumnFilter}
+ * - `'date'`   — inclusive date range at day granularity; use {@link DateColumnFilter}
  *
+ * Provide this on a column definition to select the built-in filter class.
  * For fully custom logic, supply a `filterFn` instead.
+ *
+ * @internal
  */
 export type FilterType = 'text' | 'number' | 'date';
 

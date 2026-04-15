@@ -180,28 +180,28 @@ describe('filtering', () => {
 		expect(table.filteredRows.length).toBe(5);
 	});
 
-	it('setting filterValue reduces filteredRows to matching rows', () => {
+	it('setting filter.value reduces filteredRows to matching rows', () => {
 		const table = makeTable();
-		table.columns[0].filterValue = 'ali';
+		table.columns[0].filter.value = 'ali';
 		expect(table.filteredRows.length).toBe(1);
 		expect(table.filteredRows[0].data.name).toBe('Alice');
 	});
 
-	it('column.isFiltered is true after setting a non-empty filterValue', () => {
+	it('column.isFiltered is true after setting a non-empty filter.value', () => {
 		const table = makeTable();
-		table.columns[0].filterValue = 'alice';
+		table.columns[0].filter.value = 'alice';
 		expect(table.columns[0].isFiltered).toBe(true);
 	});
 
-	it('column.isFiltered is false when filterValue is empty string', () => {
+	it('column.isFiltered is false when filter.value is empty string', () => {
 		const table = makeTable();
-		table.columns[0].filterValue = '';
+		table.columns[0].filter.value = '';
 		expect(table.columns[0].isFiltered).toBe(false);
 	});
 
-	it('column.isFiltered is false when filterValue is undefined', () => {
+	it('column.isFiltered is false when filter.value is undefined', () => {
 		const table = makeTable();
-		table.columns[0].filterValue = undefined;
+		table.columns[0].filter.value = undefined;
 		expect(table.columns[0].isFiltered).toBe(false);
 	});
 
@@ -210,60 +210,60 @@ describe('filtering', () => {
 			data: people,
 			columns: [{ accessorKey: 'name', header: 'Name' }]
 		});
-		nonFilterable.columns[0].filterValue = 'Alice';
+		nonFilterable.columns[0].filter.value = 'Alice';
 		expect(nonFilterable.columns[0].isFiltered).toBe(false);
 	});
 
-	it('column.isFiltered is false when filterValue is an empty range object', () => {
+	it('column.isFiltered is false when filter.value is an empty range object', () => {
 		const table = makeTable();
-		table.columns[1].filterValue = {};
+		table.columns[1].filter.value = {};
 		expect(table.columns[1].isFiltered).toBe(false);
 	});
 
 	it('column.isFiltered is true when a range object has at least one bound set', () => {
 		const table = makeTable();
-		table.columns[1].filterValue = { min: 25 };
+		table.columns[1].filter.value = { min: 25 };
 		expect(table.columns[1].isFiltered).toBe(true);
 	});
 
 	it('number range filter — min only keeps rows at or above min', () => {
 		const table = makeTable();
-		table.columns[1].filterValue = { min: 30 };
+		table.columns[1].filter.value = { min: 30 };
 		const ages = table.filteredRows.map((r) => r.data.age);
 		expect(ages.every((a) => a >= 30)).toBe(true);
 	});
 
 	it('number range filter — max only keeps rows at or below max', () => {
 		const table = makeTable();
-		table.columns[1].filterValue = { max: 28 };
+		table.columns[1].filter.value = { max: 28 };
 		const ages = table.filteredRows.map((r) => r.data.age);
 		expect(ages.every((a) => a <= 28)).toBe(true);
 	});
 
 	it('number range filter — both bounds keeps rows within the range', () => {
 		const table = makeTable();
-		table.columns[1].filterValue = { min: 25, max: 30 };
+		table.columns[1].filter.value = { min: 25, max: 30 };
 		const ages = table.filteredRows.map((r) => r.data.age);
 		expect(ages.every((a) => a >= 25 && a <= 30)).toBe(true);
 	});
 
 	it('date range filter — min only keeps rows on or after the start date', () => {
 		const table = makeTable();
-		table.columns[2].filterValue = { min: new Date('2023-01-01') };
+		table.columns[2].filter.value = { min: new Date('2023-01-01') };
 		const joined = table.filteredRows.map((r) => r.data.joined.getTime());
 		expect(joined.every((t) => t >= new Date('2023-01-01').getTime())).toBe(true);
 	});
 
 	it('date range filter — both bounds keeps rows within the date range', () => {
 		const table = makeTable();
-		table.columns[2].filterValue = { min: '2022-01-01', max: '2023-06-30' };
+		table.columns[2].filter.value = { min: '2022-01-01', max: '2023-06-30' };
 		// Alice: 2022-01-15, Bob: 2023-06-01 → 2 rows
 		expect(table.filteredRows.length).toBe(2);
 	});
 
-	it('clearFilters resets all column filterValues', () => {
+	it('clearFilters resets all column filter values', () => {
 		const table = makeTable();
-		table.columns[0].filterValue = 'alice';
+		table.columns[0].filter.value = 'alice';
 		table.clearFilters();
 		expect(table.filteredRows.length).toBe(5);
 	});
@@ -278,10 +278,10 @@ describe('filtering', () => {
 	it('applies multiple column filters simultaneously', () => {
 		const table = makeTable();
 		// name contains 'a' (case-insensitive): Alice, Carol, Dave (3)
-		table.columns[0].filterValue = 'a';
+		table.columns[0].filter.value = 'a';
 		// age >= 30: Alice (30), Carol (35)
 		// intersect: Alice, Carol (2)
-		table.columns[1].filterValue = { min: 30 };
+		table.columns[1].filter.value = { min: 30 };
 		expect(table.filteredRows.length).toBe(2);
 	});
 });
@@ -405,13 +405,13 @@ describe('pagination', () => {
 	it('pageCount reflects filtered row count', () => {
 		const table = makeTable(2);
 		expect(table.pageCount).toBe(3); // ceil(5/2)
-		table.columns[0].filterValue = 'alice';
+		table.columns[0].filter.value = 'alice';
 		expect(table.pageCount).toBe(1);
 	});
 
 	it('pageCount is at least 1 even when no rows match', () => {
 		const table = makeTable();
-		table.columns[0].filterValue = 'zzz';
+		table.columns[0].filter.value = 'zzz';
 		expect(table.pageCount).toBe(1);
 	});
 
@@ -578,8 +578,8 @@ describe('custom filterFn', () => {
 				}
 			]
 		});
-		// Any truthy filterValue activates the filter; the custom fn ignores it
-		table.columns[0].filterValue = { min: 1 };
+		// Any non-undefined filter.value activates the filter; the custom fn ignores the value
+		table.columns[0].filter.value = true;
 		const ages = table.filteredRows.map((r) => r.data.age);
 		expect(ages.every((a) => a % 2 === 0)).toBe(true);
 	});
@@ -784,7 +784,7 @@ describe('search', () => {
 		});
 		// Filter: age >= 28 → Alice(30), Carol(35), Dave(28) pass
 		// Search 'e' → Alice("Alice" has 'e'), Dave("Dave" has 'e') pass; Carol("Carol"/"35") — no 'e'
-		table.columns[1].filterValue = { min: 28 };
+		table.columns[1].filter.value = { min: 28 };
 		table.searchQuery = 'e';
 		const names = table.filteredRows.map((r) => r.data.name).sort();
 		expect(names).toEqual(['Alice', 'Dave']);
@@ -793,7 +793,7 @@ describe('search', () => {
 	it('clearFilters also clears searchQuery', () => {
 		const table = makeTable();
 		table.searchQuery = 'alice';
-		table.columns[0].filterValue = 'x';
+		table.columns[0].filter.value = 'x';
 		table.clearFilters();
 		expect(table.searchQuery).toBe('');
 		expect(table.filteredRows.length).toBe(5);

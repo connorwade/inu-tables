@@ -38,7 +38,7 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
  *     { name: 'Alice', age: 30, joined: new Date('2022-01-15') },
  *     { name: 'Bob',   age: 25, joined: new Date('2023-06-01') }
  *   ],
- *   columns: [
+ * columns: [
  *     { accessorKey: 'name',   header: 'Name',   sortable: true, filterable: true },
  *     { accessorKey: 'age',    header: 'Age',    sortable: true, filterable: true, filterType: 'number' },
  *     { accessorKey: 'joined', header: 'Joined', sortable: true, filterable: true, filterType: 'date' }
@@ -47,7 +47,7 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
  * })
  *
  * // Bind a filter input directly:
- * // <input type="text" bind:value={table.columns[0].filterValue} />
+ * // <input type="text" bind:value={(table.columns[0].filter as TextColumnFilter).value} />
  *
  * // Sort by age ascending → descending → clear:
  * table.toggleSort(table.columns[1]) // ascending
@@ -146,7 +146,7 @@ export class TableState<TRow> {
 	 * Rows that pass every active column filter and the global search query,
 	 * in data order.
 	 *
-	 * Recomputes whenever any column's `filterValue` or `searchQuery` changes.
+	 * Recomputes whenever any column's `filter.value` or `searchQuery` changes.
 	 * When no column has an active filter and `searchQuery` is empty, this
 	 * returns the full `rows` array without allocating a new array.
 	 *
@@ -168,7 +168,7 @@ export class TableState<TRow> {
 			// Every active column filter must pass
 			if (active.length > 0) {
 				const passesFilters = active.every((col) =>
-					col.filterFn(col.accessor(row.data), col.filterValue)
+					col.filter.fn(col.accessor(row.data), col.filter.value)
 				);
 				if (!passesFilters) return false;
 			}
@@ -361,11 +361,11 @@ export class TableState<TRow> {
 	 * Clears the filter value on every column, clears `searchQuery`, and resets
 	 * the page to 0.
 	 *
-	 * For individual column filters, set `column.filterValue` directly —
+	 * For individual column filters, set `column.filter.value` directly —
 	 * it is a plain `$state` property and can be used with `bind:value`:
 	 *
 	 * ```svelte
-	 * <input type="text" bind:value={col.filterValue} />
+	 * <input type="text" bind:value={(col.filter as TextColumnFilter).value} />
 	 * ```
 	 *
 	 * To reset pagination when a filter or search changes, add a `$effect` in
@@ -373,7 +373,7 @@ export class TableState<TRow> {
 	 *
 	 * ```svelte
 	 * $effect(() => {
-	 *   table.columns.forEach(c => c.filterValue);
+	 *   table.columns.forEach(c => c.filter.value);
 	 *   table.searchQuery;
 	 *   table.setPage(0);
 	 * });
@@ -381,7 +381,7 @@ export class TableState<TRow> {
 	 */
 	clearFilters(): void {
 		for (const col of this.columns) {
-			col.filterValue = undefined;
+			col.filter.reset();
 		}
 		this.searchQuery = '';
 		this.pageIndex = 0;

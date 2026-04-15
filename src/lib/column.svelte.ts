@@ -1,45 +1,26 @@
-import { resolveFilterFn } from './filters.js';
-import type {
-	ColumnDef,
-	ColumnDefWithFn,
-	DateRange,
-	FilterFn,
-	FilterType,
-	NumberRange,
-	SearchFn,
-	SortFn
-} from './types.js';
+import {
+	ColumnFilter,
+	TextColumnFilter,
+	NumberColumnFilter,
+	DateColumnFilter
+} from './column-filters.svelte.js';
+import type { ColumnDef, ColumnDefWithFn, SearchFn, SortFn } from './types.js';
 
 // ---------------------------------------------------------------------------
-// Helpers
+// ColumnState
 // ---------------------------------------------------------------------------
-
-/**
- * Returns `true` when a range filter object has at least one active bound.
- * An empty object or an object with all-undefined bounds counts as "no filter".
- *
- * @internal
- */
-function hasActiveRangeValue(v: NumberRange | DateRange): boolean {
-	const min = (v as { min?: unknown }).min;
-	const max = (v as { max?: unknown }).max;
-	return (
-		(min !== undefined && min !== null && min !== '') ||
-		(max !== undefined && max !== null && max !== '')
-	);
-}
 
 /**
  * Represents a single table column.
  *
  * Each `ColumnState` instance owns the reactive state that belongs to the
- * column: its filter value and its visibility. Static configuration
+ * column: its filter and its visibility. Static configuration
  * (`id`, `header`, `accessor`, sort/filter options) is set once at
  * construction and never changes.
  *
  * Column filter state is intentionally kept here rather than on
  * `TableState` so that columns are self-contained and composable.
- * `TableState` reads `isFiltered` and `filterValue` to derive its
+ * `TableState` reads `isFiltered` and `filter` to derive its
  * filtered-row views without duplicating state.
  *
  * @typeParam TRow - The shape of each row's data object.
@@ -58,9 +39,9 @@ function hasActiveRangeValue(v: NumberRange | DateRange): boolean {
  *   ]
  * })
  *
- * // Access the live column state:
- * // Bind directly from a Svelte input:
- * // <input type="text" bind:value={table.columns[0].filterValue} />
+ * // Access the live filter state:
+ * // Bind a text filter directly from a Svelte input:
+ * // <input type="text" bind:value={(col.filter as TextColumnFilter).value} />
  * ```
  */
 export class ColumnState<TRow> {
@@ -90,22 +71,28 @@ export class ColumnState<TRow> {
 	readonly filterable: boolean;
 
 	/**
-	 * The effective filter strategy for this column.
+	 * The reactive filter instance for this column.
 	 *
-	 * Always set — defaults to `'text'` when neither `filterType` nor a
-	 * custom `filterFn` was provided. Useful for rendering the appropriate
-	 * filter input in a table UI (e.g. a number input for `'number'` columns).
-	 */
-	readonly filterType: FilterType;
-
-	/**
-	 * The resolved filter function for this column.
+	 * The concrete type depends on how the column was defined:
+	 * - `filterType: 'text'` (or no type/fn) → {@link TextColumnFilter}
+	 * - `filterType: 'number'` → {@link NumberColumnFilter}
+	 * - `filterType: 'date'`   → {@link DateColumnFilter}
+	 * - custom `filterFn`       → base {@link ColumnFilter}
 	 *
-	 * Populated from `def.filterFn` if provided, otherwise from the
-	 * built-in function for `def.filterType ?? 'text'`. Always present
-	 * regardless of whether `filterable` is `true`.
+	 * Use `instanceof` to narrow to the specific subclass in UI code:
+	 *
+	 * ```svelte
+	 * {#if col.filter instanceof NumberColumnFilter}
+	 *   <input type="number" bind:value={col.filter.value!.min} />
+	 * {:else}
+	 *   <input type="text" bind:value={(col.filter as TextColumnFilter).value} />
+	 * {/if}
+	 * ```
+	 *
+	 * Call `col.filter.reset()` to restore the filter to its empty state.
 	 */
-	readonly filterFn: FilterFn;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	filter!: ColumnFilter<any>;
 
 	/**
 	 * Optional display formatter for this column's cells.
@@ -152,19 +139,6 @@ export class ColumnState<TRow> {
 	 */
 	show = $state(true);
 
-	/**
-	 * The current filter value for this column.
-	 *
-	 * The type depends on the column's `filterType`:
-	 * - `'text'`   — use a `string`
-	 * - `'number'` — use a {@link NumberRange} object (`{ min?, max? }`)
-	 * - `'date'`   — use a {@link DateRange} object (`{ min?, max? }`)
-	 *
-	 * For custom `filterFn` columns, any value accepted by your function works.
-	 * Setting to `undefined` clears the filter.
-	 */
-	filterValue = $state<string | NumberRange | DateRange | undefined>(undefined);
-
 	// -------------------------------------------------------------------------
 	// Derived state
 	// -------------------------------------------------------------------------
@@ -172,17 +146,16 @@ export class ColumnState<TRow> {
 	/**
 	 * `true` when the column has an active filter that `TableState` should apply.
 	 *
-	 * Derived from `filterable` and the current `filterValue`.
-	 * A `string` value of `''`, `null`, or `undefined` is treated as "no filter".
-	 * A `NumberRange` or `DateRange` object is inactive when both bounds are
-	 * `undefined` (i.e. `{}`).
+	 * Derived from `filterable` and `filter.active`. The definition of "active"
+	 * depends on the filter type:
+	 * - {@link TextColumnFilter}: non-empty, non-null string
+	 * - {@link NumberColumnFilter} / {@link DateColumnFilter}: at least one
+	 *   valid bound set on the range object
+	 * - base {@link ColumnFilter}: any non-`undefined` value
 	 */
 	isFiltered = $derived.by(() => {
 		if (!this.filterable) return false;
-		const v = this.filterValue;
-		if (v === undefined || v === null || v === '') return false;
-		if (typeof v === 'object') return hasActiveRangeValue(v);
-		return true;
+		return this.filter.active;
 	});
 
 	// -------------------------------------------------------------------------
@@ -203,8 +176,18 @@ export class ColumnState<TRow> {
 		this.sortable = def.sortable ?? false;
 		this.sortFn = def.sortFn;
 		this.filterable = def.filterable ?? false;
-		this.filterType = def.filterType ?? 'text';
-		this.filterFn = resolveFilterFn(def);
+
+		// Resolve the filter instance — priority: custom fn > filterType > default text
+		if (def.filterFn) {
+			this.filter = new ColumnFilter({ fn: def.filterFn });
+		} else if (def.filterType === 'number') {
+			this.filter = new NumberColumnFilter();
+		} else if (def.filterType === 'date') {
+			this.filter = new DateColumnFilter();
+		} else {
+			this.filter = new TextColumnFilter();
+		}
+
 		this.cellFn = def.cell;
 		this.searchable = def.searchable ?? true;
 		this.searchFn = def.searchFn;

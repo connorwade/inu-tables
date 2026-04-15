@@ -2,7 +2,7 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { ColumnState } from './column.svelte.js';
 import { RowState } from './row.svelte.js';
 import { CellState } from './cell.svelte.js';
-import type { DateRange, NumberRange, SortDirection } from './types.js';
+import type { SortDirection } from './types.js';
 import type { ServerTableOptions, ServerTableParams, ServerTableResult } from './server-types.js';
 
 /**
@@ -17,7 +17,7 @@ import type { ServerTableOptions, ServerTableParams, ServerTableResult } from '.
  * **Architecture**
  *
  * - Column definitions and filter state live on {@link ColumnState}, same as
- *   `TableState`. Users can `bind:value={col.filterValue}` exactly as before.
+ *   `TableState`. Users can `bind:value={(col.filter as TextColumnFilter).value}` exactly as before.
  * - Sort and pagination state live here, same as `TableState`.
  * - Row data (`rows`, `rowCount`) is replaced on every successful fetch.
  * - A generation counter prevents stale responses from overwriting newer data
@@ -217,7 +217,7 @@ export class ServerTableState<TRow> {
 					? { id: this.sortBy.column.id, direction: this.sortBy.direction }
 					: null,
 				filters: Object.fromEntries(
-					this.columns.filter((c) => c.isFiltered).map((c) => [c.id, c.filterValue] as const)
+					this.columns.filter((c) => c.isFiltered).map((c) => [c.id, c.filter.value] as const)
 				),
 				search: this.searchQuery.trim() || undefined
 			};
@@ -310,15 +310,15 @@ export class ServerTableState<TRow> {
 	/**
 	 * Sets a column's filter value and resets `pageIndex` to `0`.
 	 *
-	 * Prefer this over setting `column.filterValue` directly when you want
+	 * Prefer this over setting `column.filter.value` directly when you want
 	 * the page to reset automatically (which is almost always the right
 	 * behaviour for server-side filtering).
 	 *
 	 * @param column - The column to filter.
 	 * @param value  - The new filter value. Pass `undefined` to clear.
 	 */
-	setFilter(column: ColumnState<TRow>, value: string | NumberRange | DateRange | undefined): void {
-		column.filterValue = value;
+	setFilter(column: ColumnState<TRow>, value: unknown): void {
+		column.filter.value = value;
 		this.pageIndex = 0;
 	}
 
@@ -341,7 +341,7 @@ export class ServerTableState<TRow> {
 	 */
 	clearFilters(): void {
 		for (const col of this.columns) {
-			col.filterValue = undefined;
+			col.filter.reset();
 		}
 		this.searchQuery = '';
 		this.pageIndex = 0;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ServerTableState } from '$lib/index.js';
+	import { ServerTableState, NumberColumnFilter } from '$lib/index.js';
 	import { getPersons } from './data.remote.js';
 	import type { Person } from '../makeData.js';
 
@@ -47,14 +47,6 @@
 		],
 		fetch: getPersons,
 		pageSize: 10
-	});
-
-	let selectAllEl = $state<HTMLInputElement | null>(null);
-
-	$effect(() => {
-		if (selectAllEl) {
-			selectAllEl.indeterminate = tableState.someSelected;
-		}
 	});
 
 	function getSortIndicator(col: (typeof tableState.columns)[number]): string {
@@ -185,9 +177,8 @@
 						<th class="w-10 border-b border-gray-200 px-3 py-2 text-center">
 							<input
 								type="checkbox"
-								bind:this={selectAllEl}
-								checked={tableState.allSelected}
-								onchange={(e) => tableState.selectAll((e.target as HTMLInputElement).checked)}
+								bind:checked={tableState.allSelected}
+								bind:indeterminate={tableState.someSelected}
 								class="cursor-pointer rounded border-gray-300 text-blue-600"
 							/>
 						</th>
@@ -216,43 +207,45 @@
 						{#each tableState.visibleColumns as col (col.id)}
 							<td class="border-b border-gray-200 px-4 py-1">
 								{#if col.filterable}
-									{#if col.filterType === 'number'}
+									{#if col.filter instanceof NumberColumnFilter}
 										<div class="flex gap-1">
 											<input
 												type="number"
 												placeholder="min"
 												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
-												value={(col.filterValue as import('$lib/index.js').NumberRange)?.min ?? ''}
-												oninput={(e) => {
-													const v = (e.target as HTMLInputElement).valueAsNumber;
-													const cur =
-														(col.filterValue as import('$lib/index.js').NumberRange) ?? {};
-													tableState.setFilter(col, { ...cur, min: isNaN(v) ? undefined : v });
+												bind:value={(col.filter as NumberColumnFilter).value!.min}
+												oninput={() => {
+													tableState.setPage(0);
 												}}
 											/>
 											<input
 												type="number"
 												placeholder="max"
 												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
-												value={(col.filterValue as import('$lib/index.js').NumberRange)?.max ?? ''}
-												oninput={(e) => {
-													const v = (e.target as HTMLInputElement).valueAsNumber;
-													const cur =
-														(col.filterValue as import('$lib/index.js').NumberRange) ?? {};
-													tableState.setFilter(col, { ...cur, max: isNaN(v) ? undefined : v });
+												value={(col.filter as NumberColumnFilter).value!.max}
+												oninput={() => {
+													tableState.setPage(0);
 												}}
 											/>
 										</div>
+									{:else if col.id === 'status'}
+										<select
+											bind:value={col.filter.value as string}
+											onchange={() => {
+												tableState.setPage(0);
+											}}
+											class="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+										>
+											<option value="">All</option>
+											<option value="relationship">Relationship</option>
+											<option value="complicated">Complicated</option>
+											<option value="single">Single</option>
+										</select>
 									{:else}
 										<input
 											type="text"
 											placeholder="Filter…"
-											value={col.filterValue ?? ''}
-											oninput={(e) =>
-												tableState.setFilter(
-													col,
-													(e.target as HTMLInputElement).value || undefined
-												)}
+											bind:value={col.filter.value as string}
 											class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
 										/>
 									{/if}

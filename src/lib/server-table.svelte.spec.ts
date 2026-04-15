@@ -313,11 +313,11 @@ describe('sorting', () => {
 // ---------------------------------------------------------------------------
 
 describe('filtering', () => {
-	it('setFilter sets the column filterValue', async () => {
+	it('setFilter sets the column filter.value', async () => {
 		const table = makeTable();
 		await settled(table);
 		table.setFilter(table.columns[0], 'alice');
-		expect(table.columns[0].filterValue).toBe('alice');
+		expect(table.columns[0].filter.value).toBe('alice');
 	});
 
 	it('setFilter resets pageIndex to 0', async () => {
@@ -351,12 +351,12 @@ describe('filtering', () => {
 		expect(table.rowCount).toBe(1);
 	});
 
-	it('clearFilters resets all filterValues', async () => {
+	it('clearFilters resets all filter.values', async () => {
 		const table = makeTable();
 		await settled(table);
 		table.setFilter(table.columns[0], 'alice');
 		table.clearFilters();
-		expect(table.columns[0].filterValue).toBeUndefined();
+		expect(table.columns[0].filter.value).toBeUndefined();
 	});
 
 	it('clearFilters resets pageIndex to 0', async () => {
