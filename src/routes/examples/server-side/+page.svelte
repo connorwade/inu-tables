@@ -334,7 +334,7 @@
 		<div class="flex items-center gap-2">
 			<button
 				onclick={() => tableState.prevPage()}
-				disabled={tableState.pageIndex === 0}
+				disabled={!tableState.canGetPrevPage()}
 				class="cursor-pointer rounded border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
 			>
 				← Prev
@@ -348,7 +348,7 @@
 
 			<button
 				onclick={() => tableState.nextPage()}
-				disabled={tableState.pageIndex >= tableState.pageCount - 1}
+				disabled={!tableState.canGetNextPage()}
 				class="cursor-pointer rounded border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
 			>
 				Next →
