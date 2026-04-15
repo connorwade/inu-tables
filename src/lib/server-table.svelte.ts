@@ -173,7 +173,12 @@ export class ServerTableState<TRow> {
 	 *
 	 * Selection is page-local and resets when a new page is loaded.
 	 */
-	allSelected = $derived.by(() => this.rows.length > 0 && this.rows.every((r) => r.selected));
+	get allSelected() {
+		return this.rows.length > 0 && this.rows.every((r) => r.selected);
+	}
+	set allSelected(selected: boolean) {
+		this.rows.forEach((r) => (r.selected = selected));
+	}
 
 	/**
 	 * `true` when at least one row on the current page is selected but not all.

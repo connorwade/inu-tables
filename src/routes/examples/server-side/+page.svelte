@@ -129,8 +129,10 @@
 		<input
 			type="search"
 			placeholder="Search all columns…"
-			value={tableState.searchQuery}
-			oninput={(e) => tableState.setSearch((e.target as HTMLInputElement).value)}
+			bind:value={tableState.searchQuery}
+			oninput={() => {
+				tableState.setPage(0);
+			}}
 			class="w-full max-w-xs rounded border border-gray-200 bg-white px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-400 focus:outline-none"
 		/>
 		{#if tableState.searchQuery}
@@ -222,7 +224,7 @@
 												type="number"
 												placeholder="max"
 												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
-												value={(col.filter as NumberColumnFilter).value!.max}
+												bind:value={(col.filter as NumberColumnFilter).value!.max}
 												oninput={() => {
 													tableState.setPage(0);
 												}}
