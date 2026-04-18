@@ -30,6 +30,8 @@ export class RowState<TRow> {
 	 */
 	readonly data: TRow;
 
+	readonly id: TRow[keyof TRow];
+
 	/**
 	 * Whether this row is currently selected.
 	 *
@@ -41,7 +43,8 @@ export class RowState<TRow> {
 	 */
 	selected = $state(false);
 
-	constructor(data: TRow) {
+	constructor(data: TRow, id: TRow[keyof TRow]) {
 		this.data = data;
+		this.id = id;
 	}
 }

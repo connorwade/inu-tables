@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { TableState, NumberColumnFilter } from '$lib/index.js';
+	import { NumberColumnFilter } from '$lib/index.js';
+	import TableModel from '$lib/table-model.svelte.js';
 	import { makeData, type Person } from '../makeData.js';
 
-	const tableState = new TableState<Person>({
-		data: makeData(1000),
+	const tableState = new TableModel<Person>({
+		data: makeData(100),
 		columns: [
 			{
 				accessorKey: 'firstName',
@@ -45,11 +46,11 @@
 				filterType: 'number'
 			}
 		],
-		pageSize: 10
+		rowKey: 'id'
 	});
 
 	function getSortIndicator(col: (typeof tableState.columns)[number]): string {
-		const dir = tableState.getSortDirection(col);
+		const dir = tableState.sorting!.getSortDirection(col);
 		if (dir === 'ascending') return '↑';
 		if (dir === 'descending') return '↓';
 		return '↕';
@@ -62,8 +63,11 @@
 	}
 
 	const anyFiltered = $derived(
-		tableState.columns.some((c) => c.isFiltered) || tableState.searchQuery.trim() !== ''
+		tableState.columns.some((c) => c.isFiltered) ||
+			tableState.globalSearch!.searchQuery.trim() !== ''
 	);
+
+	$inspect({ columns: tableState.columns });
 </script>
 
 <div class="max-w-full p-6">
@@ -88,11 +92,14 @@
 	{#if anyFiltered}
 		<div class="mb-3 flex items-center gap-3">
 			<span class="text-sm text-gray-600">
-				Showing <strong>{tableState.filteredRows.length}</strong> of
+				Showing <strong>{tableState.tableFilter!.filteredRows.length}</strong> of
 				<strong>{tableState.rows.length}</strong> rows
 			</span>
 			<button
-				onclick={() => tableState.clearFilters()}
+				onclick={() => {
+					tableState.columns.forEach((col) => col.filter.reset());
+					tableState.globalSearch!.searchQuery = '';
+				}}
 				class="cursor-pointer rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200"
 			>
 				Clear filters & search
@@ -105,12 +112,15 @@
 		<input
 			type="search"
 			placeholder="Search all columns…"
-			bind:value={tableState.searchQuery}
+			bind:value={tableState.globalSearch!.searchQuery}
 			class="w-full max-w-xs rounded border border-gray-200 bg-white px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-400 focus:outline-none"
 		/>
-		{#if tableState.searchQuery}
+		{#if tableState.globalSearch!.searchQuery}
 			<span class="text-sm text-gray-500">
-				{tableState.filteredRows.length} result{tableState.filteredRows.length === 1 ? '' : 's'}
+				{tableState.tableFilter!.filteredRows.length} result{tableState.tableFilter!.filteredRows
+					.length === 1
+					? ''
+					: 's'}
 			</span>
 		{/if}
 	</div>
@@ -125,19 +135,19 @@
 					<th class="w-10 border-b border-gray-200 px-3 py-2 text-center">
 						<input
 							type="checkbox"
-							bind:indeterminate={tableState.someSelected}
-							bind:checked={tableState.allSelected}
+							bind:indeterminate={tableState.rowSelection!.someSelected}
+							bind:checked={tableState.rowSelection!.allSelected}
 							class="cursor-pointer rounded border-gray-300 text-blue-600"
 						/>
 					</th>
-					{#each tableState.visibleColumns as col (col.id)}
+					{#each tableState.columnVisibility!.visibleColumns as col (col.id)}
 						<th
 							class="border-b border-gray-200 px-4 py-2 text-left font-semibold whitespace-nowrap text-gray-700"
-							aria-sort={tableState.getSortDirection(col)}
+							aria-sort={tableState.sorting!.getSortDirection(col)}
 						>
 							{#if col.sortable}
 								<button
-									onclick={() => tableState.toggleSort(col)}
+									onclick={() => tableState.sorting!.toggleSort(col)}
 									class="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 font-semibold text-gray-700 hover:text-blue-600"
 								>
 									{col.header}
@@ -152,7 +162,7 @@
 				<!-- Filter Row -->
 				<tr class="bg-white">
 					<td class="border-b border-gray-200 px-3 py-1"></td>
-					{#each tableState.visibleColumns as col (col.id)}
+					{#each tableState.columnVisibility!.visibleColumns as col (col.id)}
 						<td class="border-b border-gray-200 px-4 py-1">
 							{#if col.filterable}
 								{#if col.filter instanceof NumberColumnFilter}
@@ -165,7 +175,7 @@
 											min={0}
 											max={(col.filter as NumberColumnFilter).value!.max}
 											onchange={() => {
-												tableState.setPage(0);
+												tableState.pagination!.pageIndex = 0;
 											}}
 										/>
 										<input
@@ -175,7 +185,7 @@
 											bind:value={(col.filter as NumberColumnFilter).value!.max}
 											min={(col.filter as NumberColumnFilter).value!.min}
 											onchange={() => {
-												tableState.setPage(0);
+												tableState.pagination!.pageIndex = 0;
 											}}
 										/>
 									</div>
@@ -183,7 +193,7 @@
 									<select
 										bind:value={col.filter.value as string}
 										onchange={() => {
-											tableState.setPage(0);
+											tableState.pagination!.pageIndex = 0;
 										}}
 										class="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
 									>
@@ -199,7 +209,7 @@
 										class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
 										bind:value={col.filter.value as string}
 										onchange={() => {
-											tableState.setPage(0);
+											tableState.pagination!.pageIndex = 0;
 										}}
 									/>
 								{/if}
@@ -209,7 +219,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each tableState.paginatedRows as row, i (row)}
+				{#each tableState.pagination!.paginatedRows as row, i (row)}
 					<tr
 						class={[
 							'border-b border-gray-100 transition-colors',
@@ -224,8 +234,7 @@
 						<td class="px-3 py-2 text-center">
 							<input
 								type="checkbox"
-								checked={row.selected}
-								onchange={() => tableState.selectRow(row)}
+								bind:checked={row.selected}
 								class="cursor-pointer rounded border-gray-300 text-blue-600"
 							/>
 						</td>
@@ -271,7 +280,7 @@
 				Rows per page:
 				<select
 					bind:value={tableState.pageSize}
-					onchange={() => tableState.setPage(0)}
+					onchange={() => (tableState.pagination!.pageIndex = 0)}
 					class="ml-1 rounded border border-gray-200 bg-white px-2 py-1 text-sm focus:ring-1 focus:ring-blue-400 focus:outline-none"
 				>
 					{#each [5, 10, 20, 50] as size (size)}
@@ -283,22 +292,23 @@
 
 		<div class="flex items-center gap-2">
 			<button
-				onclick={() => tableState.prevPage()}
-				disabled={tableState.pageIndex === 0}
+				onclick={() => (tableState.pagination!.pageIndex = tableState.pagination!.pageIndex - 1)}
+				disabled={tableState.pagination!.pageIndex === 0}
 				class="cursor-pointer rounded border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
 			>
 				← Prev
 			</button>
 
 			<span class="px-2 text-sm text-gray-600">
-				Page <strong>{tableState.pageIndex + 1}</strong> of <strong>{tableState.pageCount}</strong>
+				Page <strong>{tableState.pagination!.pageIndex + 1}</strong> of
+				<strong>{tableState.pagination!.pageCount}</strong>
 				&nbsp;|&nbsp;
-				<strong>{tableState.filteredRows.length}</strong> results
+				<strong>{tableState.tableFilter!.filteredRows.length}</strong> results
 			</span>
 
 			<button
-				onclick={() => tableState.nextPage()}
-				disabled={tableState.pageIndex >= tableState.pageCount - 1}
+				onclick={() => (tableState.pagination!.pageIndex = tableState.pagination!.pageIndex + 1)}
+				disabled={tableState.pagination!.pageIndex >= tableState.pagination!.pageCount - 1}
 				class="cursor-pointer rounded border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
 			>
 				Next →
