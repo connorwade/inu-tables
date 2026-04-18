@@ -25,7 +25,7 @@ export class PaginationState<TRow> {
 			return rows.slice(start, start + this.pageSize);
 		});
 
-		this.pageCount = $derived.by(() => Math.max(1, Math.ceil(getRows().length / this.pageSize)));
+		this.pageCount = $derived(Math.max(1, Math.ceil(getRows().length / this.pageSize)));
 	}
 }
 
