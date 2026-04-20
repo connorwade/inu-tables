@@ -78,7 +78,7 @@
 			<div class="mb-3 flex items-center gap-3">
 				<span class="text-sm text-gray-600">
 					Showing <strong>{table.filteredRows.length}</strong> of
-					<strong>{table.rowsCount}</strong> rows
+					<strong>{table.rowCount}</strong> rows
 				</span>
 				<button
 					onclick={() => {
@@ -211,7 +211,9 @@
 									class="cursor-pointer rounded border-gray-300 text-blue-600"
 								/>
 							</td>
-							{#each table.getCells(row.data).filter((cell) => cell.column.show) as cell (cell.column.id)}
+							{#each table
+								.getCells(row.data)
+								.filter((cell) => cell.column.show) as cell (cell.column.id)}
 								<td class="px-4 py-2 text-gray-700">
 									{#if cell.column.id === 'progress'}
 										<div class="flex items-center gap-2">
@@ -221,11 +223,14 @@
 													style="width: {Number(cell.value)}%"
 												></div>
 											</div>
-											<span class="w-8 text-right text-xs text-gray-500">{Number(cell.value)}%</span>
+											<span class="w-8 text-right text-xs text-gray-500">{Number(cell.value)}%</span
+											>
 										</div>
 									{:else if cell.column.id === 'status'}
 										<span
-											class="rounded-full px-2 py-0.5 text-xs font-medium {getStatusClass(String(cell.value))}"
+											class="rounded-full px-2 py-0.5 text-xs font-medium {getStatusClass(
+												String(cell.value)
+											)}"
 										>
 											{String(cell.value)}
 										</span>

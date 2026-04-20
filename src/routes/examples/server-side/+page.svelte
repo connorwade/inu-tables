@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { NumberColumnFilter } from '$lib/index.js';
 	import TableModel from '$lib/table-model.svelte.js';
 	import { GlobalSearchState, PaginationState, SortingState } from '$lib/state.svelte.js';
 	import { getPersons } from './data.remote.js';
@@ -9,9 +8,39 @@
 	const sorting = new SortingState<Person>();
 	const globalSearch = new GlobalSearchState<Person>();
 	const pagination = new PaginationState({ pageSize: 10 });
+	type NumberRangeFilter = { min?: number; max?: number };
+
+	let firstNameFilter = $state('');
+	let lastNameFilter = $state('');
+	let ageFilter = $state<NumberRangeFilter>({ min: undefined, max: undefined });
+	let visitsFilter = $state<NumberRangeFilter>({ min: undefined, max: undefined });
+	let statusFilter = $state('');
+	let progressFilter = $state<NumberRangeFilter>({ min: undefined, max: undefined });
+
+	const result: PersonPage = $derived(
+		await getPersons({
+			pageIndex: pagination.pageIndex,
+			pageSize: pagination.pageSize,
+			sortBy:
+				sorting.column && sorting.direction
+					? { id: sorting.column.id, direction: sorting.direction }
+					: null,
+			filters: {
+				firstName: firstNameFilter,
+				lastName: lastNameFilter,
+				age: ageFilter,
+				visits: visitsFilter,
+				status: statusFilter,
+				progress: progressFilter
+			},
+			search: globalSearch.searchQuery.trim() || undefined
+		})
+	);
 
 	const table = new TableModel<Person>({
-		data: () => result.rows,
+		get data(): Person[] {
+			return result.rows;
+		},
 		columns: [
 			{ accessorKey: 'firstName', header: 'First Name', sortable: true, filterable: true },
 			{ accessorKey: 'lastName', header: 'Last Name', sortable: true, filterable: true },
@@ -33,7 +62,15 @@
 			}
 		],
 		rowKey: 'id',
-		state: { sorting, pagination, globalSearch, rowCount: () => result.rowCount },
+		state: {
+			sorting,
+			pagination,
+			globalSearch,
+			get rowCount() {
+				console.log(result.rowCount);
+				return result.rowCount;
+			}
+		},
 		options: {
 			manualSorting: true,
 			manualPagination: true,
@@ -43,21 +80,6 @@
 	});
 
 	const { columnVisibility } = table;
-
-	const result: PersonPage = $derived(
-		await getPersons({
-			pageIndex: pagination.pageIndex,
-			pageSize: pagination.pageSize,
-			sortBy:
-				sorting.column && sorting.direction
-					? { id: sorting.column.id, direction: sorting.direction }
-					: null,
-			filters: Object.fromEntries(
-				table.columns.filter((c) => c.filterable).map((c) => [c.id, c.filter.value])
-			),
-			search: globalSearch.searchQuery.trim() || undefined
-		})
-	);
 
 	function getSortIndicator(col: (typeof table.columns)[number]): string {
 		const dir = sorting.getSortDirection(col);
@@ -73,14 +95,30 @@
 	}
 
 	function clearFilters() {
-		table.columns.forEach((col) => col.filter.reset());
+		firstNameFilter = '';
+		lastNameFilter = '';
+		ageFilter = { min: undefined, max: undefined };
+		visitsFilter = { min: undefined, max: undefined };
+		statusFilter = '';
+		progressFilter = { min: undefined, max: undefined };
 		globalSearch.searchQuery = '';
 		pagination.pageIndex = 0;
 	}
 
-	const anyFiltered = $derived(
-		table.columns.some((c) => c.isFiltered) || globalSearch.searchQuery.trim() !== ''
-	);
+	const anyFiltered = $derived.by(() => {
+		const hasRangeFilter = (filter: NumberRangeFilter) =>
+			filter.min !== undefined || filter.max !== undefined;
+
+		return (
+			firstNameFilter.trim() !== '' ||
+			lastNameFilter.trim() !== '' ||
+			statusFilter.trim() !== '' ||
+			hasRangeFilter(ageFilter) ||
+			hasRangeFilter(visitsFilter) ||
+			hasRangeFilter(progressFilter) ||
+			globalSearch.searchQuery.trim() !== ''
+		);
+	});
 </script>
 
 <div class="max-w-full p-6">
@@ -147,13 +185,7 @@
 						fill="none"
 						viewBox="0 0 24 24"
 					>
-						<circle
-							class="opacity-25"
-							cx="12"
-							cy="12"
-							r="10"
-							stroke="currentColor"
-							stroke-width="4"
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
 						></circle>
 						<path
 							class="opacity-75"
@@ -228,44 +260,84 @@
 							<td class="border-b border-gray-200 px-3 py-1"></td>
 							{#each columnVisibility!.visibleColumns as col (col.id)}
 								<td class="border-b border-gray-200 px-4 py-1">
-									{#if col.filterable}
-										{#if col.filter instanceof NumberColumnFilter}
-											<div class="flex gap-1">
-												<input
-													type="number"
-													placeholder="min"
-													class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
-													bind:value={(col.filter as NumberColumnFilter).value!.min}
-													oninput={() => (pagination.pageIndex = 0)}
-												/>
-												<input
-													type="number"
-													placeholder="max"
-													class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
-													bind:value={(col.filter as NumberColumnFilter).value!.max}
-													oninput={() => (pagination.pageIndex = 0)}
-												/>
-											</div>
-										{:else if col.id === 'status'}
-											<select
-												bind:value={col.filter.value as string}
-												onchange={() => (pagination.pageIndex = 0)}
-												class="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
-											>
-												<option value="">All</option>
-												<option value="relationship">Relationship</option>
-												<option value="complicated">Complicated</option>
-												<option value="single">Single</option>
-											</select>
-										{:else}
+									{#if col.id === 'firstName'}
+										<input
+											type="text"
+											placeholder="Filter…"
+											bind:value={firstNameFilter}
+											oninput={() => (pagination.pageIndex = 0)}
+											class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+										/>
+									{:else if col.id === 'lastName'}
+										<input
+											type="text"
+											placeholder="Filter…"
+											bind:value={lastNameFilter}
+											oninput={() => (pagination.pageIndex = 0)}
+											class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+										/>
+									{:else if col.id === 'age'}
+										<div class="flex gap-1">
 											<input
-												type="text"
-												placeholder="Filter…"
-												bind:value={col.filter.value as string}
-												oninput={() => (pagination.pageIndex = 0)}
+												type="number"
+												placeholder="min"
 												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												bind:value={ageFilter.min}
+												oninput={() => (pagination.pageIndex = 0)}
 											/>
-										{/if}
+											<input
+												type="number"
+												placeholder="max"
+												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												bind:value={ageFilter.max}
+												oninput={() => (pagination.pageIndex = 0)}
+											/>
+										</div>
+									{:else if col.id === 'visits'}
+										<div class="flex gap-1">
+											<input
+												type="number"
+												placeholder="min"
+												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												bind:value={visitsFilter.min}
+												oninput={() => (pagination.pageIndex = 0)}
+											/>
+											<input
+												type="number"
+												placeholder="max"
+												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												bind:value={visitsFilter.max}
+												oninput={() => (pagination.pageIndex = 0)}
+											/>
+										</div>
+									{:else if col.id === 'status'}
+										<select
+											bind:value={statusFilter}
+											onchange={() => (pagination.pageIndex = 0)}
+											class="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+										>
+											<option value="">All</option>
+											<option value="relationship">Relationship</option>
+											<option value="complicated">Complicated</option>
+											<option value="single">Single</option>
+										</select>
+									{:else if col.id === 'progress'}
+										<div class="flex gap-1">
+											<input
+												type="number"
+												placeholder="min"
+												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												bind:value={progressFilter.min}
+												oninput={() => (pagination.pageIndex = 0)}
+											/>
+											<input
+												type="number"
+												placeholder="max"
+												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+												bind:value={progressFilter.max}
+												oninput={() => (pagination.pageIndex = 0)}
+											/>
+										</div>
 									{/if}
 								</td>
 							{/each}
@@ -291,7 +363,9 @@
 										class="cursor-pointer rounded border-gray-300 text-blue-600"
 									/>
 								</td>
-								{#each table.getCells(row.data).filter((cell) => cell.column.show) as cell (cell.column.id)}
+								{#each table
+									.getCells(row.data)
+									.filter((cell) => cell.column.show) as cell (cell.column.id)}
 									<td class="px-4 py-2 text-gray-700">
 										{#if cell.column.id === 'progress'}
 											<div class="flex items-center gap-2">
@@ -307,7 +381,9 @@
 											</div>
 										{:else if cell.column.id === 'status'}
 											<span
-												class="rounded-full px-2 py-0.5 text-xs font-medium {getStatusClass(String(cell.value))}"
+												class="rounded-full px-2 py-0.5 text-xs font-medium {getStatusClass(
+													String(cell.value)
+												)}"
 											>
 												{String(cell.value)}
 											</span>

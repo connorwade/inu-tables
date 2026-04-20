@@ -85,7 +85,7 @@ class TableModel<TRow> {
 	// Counts
 	// -------------------------------------------------------------------------
 
-	readonly rowsCount: number;
+	readonly rowCount: number;
 	readonly pageCount: number;
 
 	// -------------------------------------------------------------------------
@@ -104,18 +104,7 @@ class TableModel<TRow> {
 	// -------------------------------------------------------------------------
 
 	constructor(params: {
-		/**
-		 * Row data. Two forms accepted:
-		 *
-		 * - **Static array** (`TRow[]`): client-side tables where the full
-		 *   dataset is known up-front.
-		 * - **Reactive getter** (`() => TRow[]`): server-side tables. Write
-		 *   `data: () => result.rows` where `result = $derived(await ...)`.
-		 *   TableModel wraps the getter in a `$derived.by` with try/catch so it
-		 *   returns `[]` while the async signal is still pending — no extra
-		 *   `$state` or `$effect.pre` required in calling code.
-		 */
-		data: TRow[] | (() => TRow[]);
+		data: TRow[];
 		columns: ColumnDef<TRow>[];
 		rowKey: keyof TRow;
 
@@ -133,7 +122,7 @@ class TableModel<TRow> {
 			columnVisibility?: ColumnVisibilityState<TRow>;
 			rowSelection?: RowSelectionState<TRow>;
 			/** Server-side row count source: `rowCount: () => result.rowCount`. */
-			rowCount?: () => number;
+			rowCount?: number;
 		};
 
 		options?: {
@@ -152,15 +141,7 @@ class TableModel<TRow> {
 		if (params.state?.rowFilters) this.rowFilters = params.state.rowFilters;
 
 		// Raw data
-		const getData = typeof params.data === 'function' ? params.data : null;
-		this._rawData = $derived.by(() => {
-			if (!getData) return params.data as TRow[];
-			try {
-				return getData();
-			} catch {
-				return [] as TRow[];
-			}
-		});
+		this._rawData = $derived(params.data);
 
 		// Sorting
 		if (params.state?.sorting) {
@@ -187,6 +168,17 @@ class TableModel<TRow> {
 					if (col.isFiltered && !col.filter.fn(col.accessor(row), col.filter.value)) return false;
 				}
 				return true;
+			});
+		}
+
+		const manualPagination = params.options?.manualPagination ?? false;
+
+		// Pagination
+		if (params.state?.pagination) {
+			this.pagination = params.state.pagination;
+		} else if (!manualPagination) {
+			this.pagination = new PaginationState({
+				pageSize: params.options?.pageSize ?? DEFAULT_PAGE_SIZE
 			});
 		}
 
@@ -218,7 +210,7 @@ class TableModel<TRow> {
 				});
 			}
 
-			if (this.pagination) {
+			if (this.pagination && !manualPagination) {
 				const start = this.pagination.pageIndex * this.pagination.pageSize;
 				rows = rows.slice(start, start + this.pagination.pageSize);
 			}
@@ -228,31 +220,11 @@ class TableModel<TRow> {
 		});
 
 		// Counts
-		this.rowsCount = $derived(this._rawData.length);
-
-		const rawGetCount = params.state?.rowCount;
-		const getCount = rawGetCount
-			? () => {
-					try {
-						return rawGetCount();
-					} catch {
-						return 0;
-					}
-				}
-			: () => this.filteredRows.length;
-
-		// Pagination
-		if (params.state?.pagination) {
-			this.pagination = params.state.pagination;
-		} else if (!params.options?.manualPagination) {
-			this.pagination = new PaginationState({
-				pageSize: params.options?.pageSize ?? DEFAULT_PAGE_SIZE
-			});
-		}
+		this.rowCount = $derived.by(() => params.state?.rowCount ?? this.filteredRows.length);
 
 		this.pageCount = $derived.by(() => {
 			if (!this.pagination) return 1;
-			return Math.max(1, Math.ceil(getCount() / this.pagination.pageSize));
+			return Math.max(1, Math.ceil(this.rowCount / this.pagination.pageSize));
 		});
 
 		// Row selection
