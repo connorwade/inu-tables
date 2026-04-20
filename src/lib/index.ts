@@ -1,3 +1,17 @@
+// Table model
+export { default as TableModel } from './table-model.svelte.js';
+export type { ResolvedCell } from './table-model.svelte.js';
+
+// State classes
+export {
+	PaginationState,
+	SortingState,
+	GlobalSearchState,
+	RowSelectionState,
+	ColumnVisibilityState,
+	ColumnFilterState
+} from './state.svelte.js';
+
 // Entity state classes
 export { ColumnState } from './column.svelte.js';
 export { RowState } from './row.svelte.js';
@@ -13,6 +27,7 @@ export {
 
 // Types
 export type {
+	RowFilter,
 	SortDirection,
 	FilterFn,
 	SortFn,
