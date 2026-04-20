@@ -4,28 +4,12 @@
 	import type { Person } from '../makeData.ts';
 	import { getData } from './data.remote.ts';
 
-	const tableState = new TableModel<Person>({
+	const table = new TableModel<Person>({
 		data: await getData(10_000),
 		columns: [
-			{
-				accessorKey: 'firstName',
-				header: 'First Name',
-				sortable: true,
-				filterable: true
-			},
-			{
-				accessorKey: 'lastName',
-				header: 'Last Name',
-				sortable: true,
-				filterable: true
-			},
-			{
-				accessorKey: 'age',
-				header: 'Age',
-				sortable: true,
-				filterable: true,
-				filterType: 'number'
-			},
+			{ accessorKey: 'firstName', header: 'First Name', sortable: true, filterable: true },
+			{ accessorKey: 'lastName', header: 'Last Name', sortable: true, filterable: true },
+			{ accessorKey: 'age', header: 'Age', sortable: true, filterable: true, filterType: 'number' },
 			{
 				accessorKey: 'visits',
 				header: 'Visits',
@@ -33,12 +17,7 @@
 				filterable: true,
 				filterType: 'number'
 			},
-			{
-				accessorKey: 'status',
-				header: 'Status',
-				sortable: true,
-				filterable: true
-			},
+			{ accessorKey: 'status', header: 'Status', sortable: true, filterable: true },
 			{
 				accessorKey: 'progress',
 				header: 'Progress',
@@ -50,8 +29,10 @@
 		rowKey: 'id'
 	});
 
-	function getSortIndicator(col: (typeof tableState.columns)[number]): string {
-		const dir = tableState.sorting!.getSortDirection(col);
+	const { sorting, pagination, globalSearch, columnVisibility } = table;
+
+	function getSortIndicator(col: (typeof table.columns)[number]): string {
+		const dir = sorting!.getSortDirection(col);
 		if (dir === 'ascending') return '↑';
 		if (dir === 'descending') return '↓';
 		return '↕';
@@ -64,8 +45,7 @@
 	}
 
 	const anyFiltered = $derived(
-		tableState.columns.some((c) => c.isFiltered) ||
-			tableState.globalSearch!.searchQuery.trim() !== ''
+		table.columns.some((c) => c.isFiltered) || globalSearch!.searchQuery.trim() !== ''
 	);
 </script>
 
@@ -81,7 +61,7 @@
 		<!-- Column Visibility Toggles -->
 		<div class="mb-4 flex flex-wrap gap-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
 			<span class="self-center text-sm font-semibold text-gray-600">Columns:</span>
-			{#each tableState.columns as col (col.id)}
+			{#each table.columns as col (col.id)}
 				<label class="flex cursor-pointer items-center gap-1.5 text-sm text-gray-700">
 					<input
 						type="checkbox"
@@ -97,13 +77,13 @@
 		{#if anyFiltered}
 			<div class="mb-3 flex items-center gap-3">
 				<span class="text-sm text-gray-600">
-					Showing <strong>{tableState.tableFilter!.filteredRows.length}</strong> of
-					<strong>{tableState.rows.length}</strong> rows
+					Showing <strong>{table.filteredRows.length}</strong> of
+					<strong>{table.rowsCount}</strong> rows
 				</span>
 				<button
 					onclick={() => {
-						tableState.columns.forEach((col) => col.filter.reset());
-						tableState.globalSearch!.searchQuery = '';
+						table.columns.forEach((col) => col.filter.reset());
+						globalSearch!.searchQuery = '';
 					}}
 					class="cursor-pointer rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-200"
 				>
@@ -117,15 +97,12 @@
 			<input
 				type="search"
 				placeholder="Search all columns…"
-				bind:value={tableState.globalSearch!.searchQuery}
+				bind:value={globalSearch!.searchQuery}
 				class="w-full max-w-xs rounded border border-gray-200 bg-white px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-400 focus:outline-none"
 			/>
-			{#if tableState.globalSearch!.searchQuery}
+			{#if globalSearch!.searchQuery}
 				<span class="text-sm text-gray-500">
-					{tableState.tableFilter!.filteredRows.length} result{tableState.tableFilter!.filteredRows
-						.length === 1
-						? ''
-						: 's'}
+					{table.filteredRows.length} result{table.filteredRows.length === 1 ? '' : 's'}
 				</span>
 			{/if}
 		</div>
@@ -134,25 +111,24 @@
 		<div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
 			<table class="w-full border-collapse text-sm">
 				<thead class="bg-gray-50">
-					<!-- Column Headers -->
 					<tr>
-						<!-- Select All -->
 						<th class="w-10 border-b border-gray-200 px-3 py-2 text-center">
 							<input
 								type="checkbox"
-								bind:indeterminate={tableState.rowSelection!.someSelected}
-								bind:checked={tableState.rowSelection!.allSelected}
+								indeterminate={table.someSelected}
+								checked={table.allSelected}
+								onchange={() => (table.allSelected ? table.deselectAll() : table.selectAll())}
 								class="cursor-pointer rounded border-gray-300 text-blue-600"
 							/>
 						</th>
-						{#each tableState.columnVisibility!.visibleColumns as col (col.id)}
+						{#each columnVisibility!.visibleColumns as col (col.id)}
 							<th
 								class="border-b border-gray-200 px-4 py-2 text-left font-semibold whitespace-nowrap text-gray-700"
-								aria-sort={tableState.sorting!.getSortDirection(col)}
+								aria-sort={sorting!.getSortDirection(col)}
 							>
 								{#if col.sortable}
 									<button
-										onclick={() => tableState.sorting!.toggleSort(col)}
+										onclick={() => sorting!.toggleSort(col)}
 										class="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 font-semibold text-gray-700 hover:text-blue-600"
 									>
 										{col.header}
@@ -167,7 +143,7 @@
 					<!-- Filter Row -->
 					<tr class="bg-white">
 						<td class="border-b border-gray-200 px-3 py-1"></td>
-						{#each tableState.columnVisibility!.visibleColumns as col (col.id)}
+						{#each columnVisibility!.visibleColumns as col (col.id)}
 							<td class="border-b border-gray-200 px-4 py-1">
 								{#if col.filterable}
 									{#if col.filter instanceof NumberColumnFilter}
@@ -179,9 +155,7 @@
 												bind:value={(col.filter as NumberColumnFilter).value!.min}
 												min={0}
 												max={(col.filter as NumberColumnFilter).value!.max}
-												onchange={() => {
-													tableState.pagination!.pageIndex = 0;
-												}}
+												onchange={() => (pagination!.pageIndex = 0)}
 											/>
 											<input
 												type="number"
@@ -189,17 +163,13 @@
 												class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
 												bind:value={(col.filter as NumberColumnFilter).value!.max}
 												min={(col.filter as NumberColumnFilter).value!.min}
-												onchange={() => {
-													tableState.pagination!.pageIndex = 0;
-												}}
+												onchange={() => (pagination!.pageIndex = 0)}
 											/>
 										</div>
 									{:else if col.id === 'status'}
 										<select
 											bind:value={col.filter.value as string}
-											onchange={() => {
-												tableState.pagination!.pageIndex = 0;
-											}}
+											onchange={() => (pagination!.pageIndex = 0)}
 											class="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
 										>
 											<option value="">All</option>
@@ -213,9 +183,7 @@
 											placeholder="Filter…"
 											class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
 											bind:value={col.filter.value as string}
-											onchange={() => {
-												tableState.pagination!.pageIndex = 0;
-											}}
+											onchange={() => (pagination!.pageIndex = 0)}
 										/>
 									{/if}
 								{/if}
@@ -224,31 +192,28 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each tableState.pagination!.paginatedRows as row, i (row)}
+					{#each table.visibleRows as row, i (row.id)}
 						<tr
 							class={[
 								'border-b border-gray-100 transition-colors',
-								row.selected
+								table.isSelected(row.data)
 									? 'bg-blue-50'
 									: i % 2 === 0
 										? 'bg-white hover:bg-gray-50'
 										: 'bg-gray-50/50 hover:bg-gray-100/50'
 							].join(' ')}
 						>
-							<!-- Row Checkbox -->
 							<td class="px-3 py-2 text-center">
 								<input
 									type="checkbox"
-									bind:checked={row.selected}
+									checked={table.isSelected(row.data)}
+									onchange={() => table.toggleSelected(row.data)}
 									class="cursor-pointer rounded border-gray-300 text-blue-600"
 								/>
 							</td>
-							{#each tableState
-								.getCellsForRow(row)
-								.filter((cell) => cell.column.show) as cell (cell.column.id)}
+							{#each table.getCells(row.data).filter((cell) => cell.column.show) as cell (cell.column.id)}
 								<td class="px-4 py-2 text-gray-700">
 									{#if cell.column.id === 'progress'}
-										<!-- Progress Bar -->
 										<div class="flex items-center gap-2">
 											<div class="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
 												<div
@@ -256,15 +221,11 @@
 													style="width: {Number(cell.value)}%"
 												></div>
 											</div>
-											<span class="w-8 text-right text-xs text-gray-500">{Number(cell.value)}%</span
-											>
+											<span class="w-8 text-right text-xs text-gray-500">{Number(cell.value)}%</span>
 										</div>
 									{:else if cell.column.id === 'status'}
-										<!-- Status Badge -->
 										<span
-											class="rounded-full px-2 py-0.5 text-xs font-medium {getStatusClass(
-												String(cell.value)
-											)}"
+											class="rounded-full px-2 py-0.5 text-xs font-medium {getStatusClass(String(cell.value))}"
 										>
 											{String(cell.value)}
 										</span>
@@ -285,8 +246,8 @@
 				<label class="flex items-center gap-1.5">
 					Rows per page:
 					<select
-						bind:value={tableState.pageSize}
-						onchange={() => (tableState.pagination!.pageIndex = 0)}
+						bind:value={pagination!.pageSize}
+						onchange={() => (pagination!.pageIndex = 0)}
 						class="ml-1 rounded border border-gray-200 bg-white px-2 py-1 text-sm focus:ring-1 focus:ring-blue-400 focus:outline-none"
 					>
 						{#each [5, 10, 20, 50] as size (size)}
@@ -298,23 +259,23 @@
 
 			<div class="flex items-center gap-2">
 				<button
-					onclick={() => (tableState.pagination!.pageIndex = tableState.pagination!.pageIndex - 1)}
-					disabled={tableState.pagination!.pageIndex === 0}
+					onclick={() => pagination!.pageIndex--}
+					disabled={pagination!.pageIndex === 0}
 					class="cursor-pointer rounded border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
 				>
 					← Prev
 				</button>
 
 				<span class="px-2 text-sm text-gray-600">
-					Page <strong>{tableState.pagination!.pageIndex + 1}</strong> of
-					<strong>{tableState.pagination!.pageCount}</strong>
+					Page <strong>{pagination!.pageIndex + 1}</strong> of
+					<strong>{table.pageCount}</strong>
 					&nbsp;|&nbsp;
-					<strong>{tableState.tableFilter!.filteredRows.length}</strong> results
+					<strong>{table.filteredRows.length}</strong> results
 				</span>
 
 				<button
-					onclick={() => (tableState.pagination!.pageIndex = tableState.pagination!.pageIndex + 1)}
-					disabled={tableState.pagination!.pageIndex >= tableState.pagination!.pageCount - 1}
+					onclick={() => pagination!.pageIndex++}
+					disabled={pagination!.pageIndex >= table.pageCount - 1}
 					class="cursor-pointer rounded border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
 				>
 					Next →

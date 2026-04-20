@@ -1,7 +1,6 @@
 import { query } from '$app/server';
 import { z } from 'zod';
 import { makeData, type Person } from '../makeData.js';
-import type { ServerTableResult } from '$lib/server-types.js';
 
 // ---------------------------------------------------------------------------
 // Simulated server database — generated once at module load, stable across
@@ -11,7 +10,17 @@ import type { ServerTableResult } from '$lib/server-types.js';
 const db: Person[] = makeData(10_000);
 
 // ---------------------------------------------------------------------------
-// Zod schema mirroring ServerTableParams
+// Result type
+// ---------------------------------------------------------------------------
+
+export type PersonPage = {
+	rows: Person[];
+	/** Total number of rows matching the current filters/search (before pagination). */
+	rowCount: number;
+};
+
+// ---------------------------------------------------------------------------
+// Zod schema for the query parameters
 // ---------------------------------------------------------------------------
 
 const paramsSchema = z.object({
@@ -51,7 +60,7 @@ const paramsSchema = z.object({
  */
 export const getPersons = query(
 	paramsSchema,
-	async (params): Promise<ServerTableResult<Person>> => {
+	async (params): Promise<PersonPage> => {
 		let data = db as Person[];
 
 		// --- Filtering -----------------------------------------------------------

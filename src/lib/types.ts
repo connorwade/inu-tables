@@ -1,4 +1,18 @@
 /**
+ * A predicate that decides whether a row should be included in the visible
+ * row set.
+ *
+ * Return `true` to include the row, `false` to exclude it.
+ *
+ * Predicates operate on the raw row data object — no `RowState` wrapper needed.
+ * Push entries onto `TableModel.rowFilters` to register custom filters.
+ * All registered predicates must pass (AND semantics).
+ *
+ * @typeParam TRow - The shape of each row's data object.
+ */
+export type RowFilter<TRow> = (row: TRow) => boolean;
+
+/**
  * Sort direction values aligned with the `aria-sort` attribute vocabulary.
  *
  * @see https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-sort
